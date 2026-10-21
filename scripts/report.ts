@@ -1,9 +1,9 @@
 import { formatSummary } from "../src/format.ts";
-import { readRecords, resolveLogPath } from "../src/log.ts";
+import { readRecords, resolveDbPath } from "../src/db.ts";
 import { summarize } from "../src/summary.ts";
 
 const args = process.argv.slice(2);
-let file = resolveLogPath();
+let file = resolveDbPath();
 let session: string | undefined;
 
 for (let index = 0; index < args.length; index += 1) {
@@ -25,6 +25,6 @@ for (let index = 0; index < args.length; index += 1) {
   throw new Error(`알 수 없는 인자입니다: ${arg ?? ""}`);
 }
 
-const records = readRecords(file).filter((record) => session === undefined || record.sessionId === session);
+const records = session === undefined ? readRecords(file) : readRecords(file, { sessionId: session });
 const title = session === undefined ? "코드 모드 벤치 · 전체" : `코드 모드 벤치 · ${session}`;
-console.log(formatSummary(summarize(records), { title, logPath: file }).join("\n"));
+console.log(formatSummary(summarize(records), { title, dbPath: file }).join("\n"));

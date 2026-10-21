@@ -20,7 +20,7 @@ export function formatStatus(record: BenchRecord): string {
   return parts.join(" · ");
 }
 
-export function formatSummary(summary: Summary, options: { title: string; logPath: string }): string[] {
+export function formatSummary(summary: Summary, options: { title: string; dbPath: string }): string[] {
   const lines = [
     options.title,
     `${summary.n}회 · 성공 ${summary.ok} · 실패 ${summary.error} · 미실행 ${summary.notRun}`,
@@ -42,7 +42,7 @@ export function formatSummary(summary: Summary, options: { title: string; logPat
       lines.push(`${name}  n=${model.n}  ${write}  ${execute}`);
     }
   }
-  lines.push(`로그 ${options.logPath}`);
+  lines.push(`DB ${options.dbPath}`);
   return lines;
 }
 

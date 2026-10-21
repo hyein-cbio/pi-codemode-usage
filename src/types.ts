@@ -1,7 +1,7 @@
 /** Tool name of Pi's built-in code mode tool. */
 export const CODEMODE_TOOL_NAME = "codemode";
 
-/** JSONL record schema. Bump when a field changes meaning. */
+/** Row schema stored in the SQLite `runs` table. Bump when a field changes meaning. */
 export const SCHEMA_VERSION = 1 as const;
 
 /** Session custom entry type. Not sent to the model. */

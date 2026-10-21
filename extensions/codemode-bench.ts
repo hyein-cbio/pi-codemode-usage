@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { formatStatus, formatSummary } from "../src/format.ts";
-import { appendRecord, readRecords, resolveLogPath } from "../src/log.ts";
+import { insertRecord, readRecords, resolveDbPath } from "../src/db.ts";
 import { CodemodeRecorder, type ExecutionEnd } from "../src/measure.ts";
 import { summarize } from "../src/summary.ts";
 import {
@@ -16,8 +16,8 @@ const STATUS_KEY = "codemode-bench";
 const WIDGET_KEY = "codemode-bench";
 
 export interface BenchExtensionOptions {
-  /** Override the JSONL path. Defaults to ~/.pi/agent/codemode-bench/runs.jsonl. */
-  logPath?: string;
+  /** Override the SQLite path. Defaults to ~/.pi/agent/codemode-bench/runs.sqlite. */
+  dbPath?: string;
   clock?: Clock;
   toolName?: string;
 }
@@ -31,7 +31,7 @@ export interface BenchExtensionOptions {
  * `execute()` ran, including nested tool calls inside the script.
  */
 export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}) {
-  const logPath = options.logPath ?? resolveLogPath();
+  const dbPath = options.dbPath ?? resolveDbPath();
   const recorder = new CodemodeRecorder({ clock: options.clock, toolName: options.toolName });
   let logErrorNotified = false;
 
@@ -39,7 +39,7 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
     const commit = (records: readonly BenchRecord[], ctx: ExtensionContext): void => {
       for (const record of records) {
         try {
-          appendRecord(logPath, record);
+          insertRecord(dbPath, record);
         } catch (error) {
           if (!logErrorNotified) {
             logErrorNotified = true;
@@ -51,7 +51,7 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
         try {
           pi.appendEntry(ENTRY_TYPE, record);
         } catch {
-          // The JSONL line is the benchmark. The session entry is a copy.
+          // The SQLite row is the benchmark. The session entry is a copy.
         }
         safeStatus(ctx, formatStatus(record));
       }
@@ -107,7 +107,7 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
           return;
         }
         if (command === "path") {
-          safeNotify(ctx, logPath, "info");
+          safeNotify(ctx, dbPath, "info");
           return;
         }
         if (command !== "" && command !== "session" && command !== "all") {
@@ -117,10 +117,11 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
 
         const scope = command === "all" ? "all" : "session";
         const sessionId = ctx.sessionManager.getSessionId();
-        const records = readRecords(logPath).filter((record) => scope === "all" || record.sessionId === sessionId);
+        const records =
+          scope === "all" ? readRecords(dbPath) : readRecords(dbPath, { sessionId });
         const lines = formatSummary(summarize(records), {
           title: scope === "all" ? "코드 모드 벤치 · 전체" : "코드 모드 벤치 · 이 세션",
-          logPath,
+          dbPath,
         });
         if (ctx.hasUI) {
           safeWidget(ctx, lines);

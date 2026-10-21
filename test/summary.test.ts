@@ -81,9 +81,9 @@ describe("format", () => {
   });
 
   it("renders an empty summary with the log path", () => {
-    const lines = formatSummary(summarize([]), { title: "코드 모드 벤치 · 이 세션", logPath: "/tmp/runs.jsonl" });
+    const lines = formatSummary(summarize([]), { title: "코드 모드 벤치 · 이 세션", dbPath: "/tmp/runs.sqlite" });
     assert.match(lines[0] ?? "", /이 세션/);
     assert.match(lines[1] ?? "", /0회/);
-    assert.equal(lines.at(-1), "로그 /tmp/runs.jsonl");
+    assert.equal(lines.at(-1), "DB /tmp/runs.sqlite");
   });
 });

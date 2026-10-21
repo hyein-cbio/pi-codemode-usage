@@ -28,14 +28,14 @@ npm run typecheck
 npm run replay
 ```
 
-`npm run replay`는 모델 없이 호출 두 건을 재현하고, 로그에 소스가 안 남는지 확인한 뒤 요약을 출력합니다.
+`npm run replay`는 모델 없이 호출 두 건을 SQLite에 넣고, 스크립트 본문이 안 남는지 확인한 뒤 요약을 출력합니다.
 
-이미 쌓인 로그 요약:
+이미 쌓인 기록 요약:
 
 ```bash
 npm run report
 npm run report -- --session <session-id>
-npm run report -- --file /path/to/runs.jsonl
+npm run report -- --file /path/to/runs.sqlite
 ```
 
 이 저장소에서 Pi를 띄울 때:
@@ -76,25 +76,32 @@ pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
 | 명령 | 동작 |
 | --- | --- |
 | `/codemode-bench` | 이 세션 요약. 편집기 위에 위젯으로 남음 |
-| `/codemode-bench all` | 로그 파일 전체 |
-| `/codemode-bench path` | 로그 경로 |
+| `/codemode-bench all` | DB 전체 |
+| `/codemode-bench path` | DB 경로 |
 | `/codemode-bench hide` | 요약 위젯 닫기 |
 
 요약은 횟수, 성공/실패/미실행, 쓰기·실행의 p50·p95·평균입니다. 모델이 둘 이상이면 모델별 p50도 보여 줍니다.
 
-## 로그
+## 저장
 
-기본 경로는 `~/.pi/agent/codemode-bench/runs.jsonl`입니다. `PI_CODING_AGENT_DIR`이 있으면 그 아래 `codemode-bench/runs.jsonl`입니다. `CODEMODE_BENCH_LOG`가 있으면 그 파일을 씁니다.
+기록은 SQLite 파일입니다. Node 내장 `node:sqlite`를 쓰므로 네이티브 모듈을 따로 설치하지 않습니다. Node 22에서는 이 모듈이 실험 기능이라, Pi를 띄울 때 `ExperimentalWarning`이 한 번 나올 수 있습니다. 기본 경로는 `~/.pi/agent/codemode-bench/runs.sqlite`입니다. `PI_CODING_AGENT_DIR`이 있으면 그 아래 `codemode-bench/runs.sqlite`입니다. `CODEMODE_BENCH_DB`가 있으면 그 파일을 씁니다.
 
-한 줄이 호출 하나입니다. 스키마는 `schema: 1`입니다.
+테이블은 `runs`이고, 한 행이 호출 하나입니다. `schema` 열은 `1`입니다. `outcome`은 `ok`, `error`, `not_run` 중 하나입니다. 스크립트 본문은 없고, `code_sha256`은 앞 16자리입니다. `has_options_line`은 `1`, `0`, 또는 `NULL`입니다.
 
-```json
-{"schema":1,"toolCallId":"call-1","writeMs":1250,"executeMs":80,"outcome":"ok","provider":"anthropic","model":"claude-sonnet","codeChars":32,"codeBytes":32,"codeLines":2,"codeSha256":"0123456789abcdef","hasOptionsLine":false,"outputChars":4,"nestedCallCount":1,"nestedExecuteMs":70}
+```sql
+SELECT provider, model,
+       COUNT(*) AS n,
+       AVG(write_ms) AS write_ms,
+       AVG(execute_ms) AS execute_ms
+FROM runs
+GROUP BY provider, model;
 ```
 
-`outcome`은 `ok`, `error`, `not_run` 중 하나입니다. 같은 기록이 세션 커스텀 엔트리 `codemode-bench`로도 붙습니다. 모델 컨텍스트에는 넣지 않습니다.
+```bash
+sqlite3 ~/.pi/agent/codemode-bench/runs.sqlite
+```
 
-같은 Pi 프로세스의 동시 기록은 한 줄이 4KB를 넘지 않아 줄 단위로 붙습니다. 프로세스가 여럿이면 줄이 겹치지 않게 각자 `CODEMODE_BENCH_LOG`를 나누는 편이 안전합니다.
+같은 기록이 세션 커스텀 엔트리 `codemode-bench`로도 붙습니다. 모델 컨텍스트에는 넣지 않습니다. 쓰기는 WAL 모드이고 `busy_timeout`은 5초입니다. `npm run report`를 Pi가 기록하는 동안 돌려도 됩니다.
 
 ## 확장을 더 넣을 때
 

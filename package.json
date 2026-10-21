@@ -12,11 +12,11 @@
     "node": ">=22.19.0"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test",
-    "replay": "node --experimental-strip-types scripts/replay.ts",
-    "report": "node --experimental-strip-types scripts/report.ts",
+    "replay": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/replay.ts",
+    "report": "node --disable-warning=ExperimentalWarning --experimental-strip-types scripts/report.ts",
     "dev": "pi --tools +codemode"
   },
   "pi": {

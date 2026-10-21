@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { createCodemodeBenchExtension } from "../extensions/codemode-bench.ts";
-import { readRecords } from "../src/log.ts";
+import { readRecords } from "../src/db.ts";
 import type { Clock } from "../src/types.ts";
 
 interface Harness {
@@ -19,7 +19,7 @@ interface Harness {
   entries: unknown[];
 }
 
-function harness(logPath: string, clock: Clock): Harness {
+function harness(dbPath: string, clock: Clock): Harness {
   const handlers = new Map<string, ((event: unknown, ctx: FakeCtx) => unknown)[]>();
   let command: ((args: string, ctx: FakeCtx) => Promise<void>) | undefined;
   let status: string | undefined;
@@ -62,7 +62,7 @@ function harness(logPath: string, clock: Clock): Harness {
     },
   };
 
-  createCodemodeBenchExtension({ logPath, clock })(pi as unknown as ExtensionAPI);
+  createCodemodeBenchExtension({ dbPath, clock })(pi as unknown as ExtensionAPI);
 
   return {
     notifications,
@@ -107,8 +107,8 @@ function manualClock(): { clock: Clock; set: (ms: number) => void } {
 describe("codemode bench extension", () => {
   it("writes a log line when codemode streams and then runs", async () => {
     const time = manualClock();
-    const logPath = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.jsonl");
-    const bench = harness(logPath, time.clock);
+    const dbPath = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.sqlite");
+    const bench = harness(dbPath, time.clock);
     const code = "return tools.ls({ path: '.' })\n";
 
     await bench.emit("turn_start", { type: "turn_start", turnIndex: 3, timestamp: 0 });
@@ -144,7 +144,7 @@ describe("codemode bench extension", () => {
       result: { content: [{ type: "text", text: "done" }], details: { calls: [{ durationMs: 70 }] } },
     });
 
-    const [record] = readRecords(logPath);
+    const [record] = readRecords(dbPath);
     assert.ok(record);
     assert.equal(record.writeMs, 1250);
     assert.equal(record.executeMs, 80);
@@ -155,25 +155,25 @@ describe("codemode bench extension", () => {
     assert.equal(JSON.stringify(record).includes("tools.ls"), false);
     assert.equal(bench.status(), "codemode · 쓰기 1.25s · 실행 80ms");
     assert.equal(bench.entries.length, 1);
-    assert.equal(readRecords(logPath).length, 1);
+    assert.equal(readRecords(dbPath).length, 1);
 
     await bench.emit("agent_end", { type: "agent_end", messages: [] });
-    assert.equal(readRecords(logPath).length, 1);
+    assert.equal(readRecords(dbPath).length, 1);
 
     await bench.run("");
     assert.match(bench.widget()?.[1] ?? "", /1회/);
     await bench.run("hide");
     assert.equal(bench.widget(), undefined);
     await bench.run("path");
-    assert.equal(bench.notifications.at(-1), logPath);
+    assert.equal(bench.notifications.at(-1), dbPath);
     await bench.run("nope");
     assert.match(bench.notifications.at(-1) ?? "", /사용법/);
   });
 
   it("does not record other tools, and keeps an unrun script at agent end", async () => {
     const time = manualClock();
-    const logPath = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.jsonl");
-    const bench = harness(logPath, time.clock);
+    const dbPath = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.sqlite");
+    const bench = harness(dbPath, time.clock);
 
     await bench.emit("message_update", {
       type: "message_update",
@@ -220,7 +220,7 @@ describe("codemode bench extension", () => {
     });
     await bench.emit("agent_end", { type: "agent_end", messages: [] });
 
-    const records = readRecords(logPath);
+    const records = readRecords(dbPath);
     assert.equal(records.length, 1);
     assert.equal(records[0]?.toolCallId, "code-1");
     assert.equal(records[0]?.writeMs, 250);
