@@ -85,6 +85,7 @@ describe("CodemodeRecorder", () => {
     );
 
     assert.ok(record);
+    assert.equal(record.toolName, "codemode");
     assert.equal(record.writeMs, 1500);
     assert.equal(record.executeMs, 320);
     assert.equal(record.outcome, "ok");
@@ -104,6 +105,26 @@ describe("CodemodeRecorder", () => {
     assert.equal(record.nestedExecuteMs, 140);
     assert.equal(JSON.stringify(record).includes("return 1"), false);
     assert.equal(recorder.flush(meta).length, 0);
+  });
+
+  it("records codemode_o the same way and keeps that tool name", () => {
+    const time = clock();
+    const recorder = new CodemodeRecorder({ clock: time.clock });
+    recorder.onAssistant({ type: "toolcall_start", contentIndex: 0, toolName: "codemode_o" });
+    time.set(40);
+    recorder.onAssistant({
+      type: "toolcall_end",
+      contentIndex: 0,
+      toolCall: { id: "o-1", name: "codemode_o", arguments: { code: "return 1" } },
+    });
+    const record = recorder.onExecutionEnd(
+      { toolCallId: "o-1", toolName: "codemode_o", isError: false, durationMs: 12 },
+      meta,
+    );
+    assert.equal(record?.toolName, "codemode_o");
+    assert.equal(record?.writeMs, 40);
+    assert.equal(record?.executeMs, 12);
+    assert.equal(record?.outcome, "ok");
   });
 
   it("starts the write clock before the tool name is known", () => {

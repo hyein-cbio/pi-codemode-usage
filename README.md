@@ -1,6 +1,6 @@
 # pi-codemode-bench
 
-Pi 코딩 에이전트의 `codemode` 툴이 돌 때마다, 모델이 스크립트를 쓰는 시간과 그 스크립트가 실행되는 시간을 갈라 기록하는 확장입니다. 실사용 세션에서 코드 모드 비용을 보기 위한 벤치입니다.
+Pi 코딩 에이전트의 `codemode`와 `codemode_o` 툴이 돌 때마다, 모델이 스크립트를 쓰는 시간과 그 스크립트가 실행되는 시간을 갈라 기록하는 확장입니다. 실사용 세션에서 코드 모드 비용을 보기 위한 벤치입니다. 어느 툴이 호출됐는지도 같은 행에 남깁니다.
 
 확장 팩 하나로 로컬에서 바로 켜집니다. Pi가 TypeScript를 직접 로드하므로 빌드 단계는 없습니다.
 
@@ -24,7 +24,7 @@ pi install git:github.com/hyein-cbio/pi-codemode-bench
 
 ## 무엇을 재나
 
-한 번의 `codemode` 호출은 두 구간입니다.
+한 번의 `codemode` 또는 `codemode_o` 호출은 두 구간입니다.
 
 | 구간 | 시계 | 의미 |
 | --- | --- | --- |
@@ -110,7 +110,7 @@ pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
 
 `PI_CODING_AGENT_DIR`이 있으면 그 아래 `codemode-bench/`입니다. `CODEMODE_BENCH_DB`가 있으면 그 디렉터리를 씁니다. 세션 id는 Pi와 같이 영숫자와 `.` `_` `-`만 파일명에 들어가고, 그 밖의 id는 `no-session.sqlite`입니다.
 
-테이블은 `runs`이고, 한 행이 `codemode` 호출 하나입니다. `schema` 열은 `1`입니다.
+테이블은 `runs`이고, 한 행이 `codemode` 또는 `codemode_o` 호출 하나입니다. `schema` 열은 `1`입니다. 이 열이 생기기 전에 만든 파일은 열 때 `tool_name`을 덧붙입니다. 그 이전 행의 `tool_name`은 `NULL`입니다.
 
 | 열 | 의미 |
 | --- | --- |
@@ -121,6 +121,7 @@ pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
 | `provider`, `model`, `thinking_level` | 그 호출의 모델 |
 | `turn_index` | 에이전트 턴 번호 |
 | `tool_call_id` | 툴 호출 id |
+| `tool_name` | 툴 호출 이름. `codemode` 또는 `codemode_o` |
 | `write_ms` | 스크립트를 스트리밍한 시간. 못 재면 `NULL` |
 | `execute_ms` | `execute()` 시간. 실행되지 않으면 `NULL` |
 | `outcome` | `ok`, `error`, `not_run` |

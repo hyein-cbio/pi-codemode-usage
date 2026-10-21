@@ -19,6 +19,7 @@ const record: BenchRecord = {
   thinkingLevel: "high",
   turnIndex: 1,
   toolCallId: "call-1",
+  toolName: "codemode",
   writeMs: 1500,
   executeMs: 320,
   outcome: "ok",
@@ -56,6 +57,7 @@ describe("sqlite store", () => {
     insertRecord(sessionDbPath(dir, "other"), {
       ...record,
       toolCallId: "call-2",
+      toolName: "codemode_o",
       outcome: "error",
       sessionId: "other",
       writeMs: null,
@@ -68,6 +70,7 @@ describe("sqlite store", () => {
     assert.equal(records.length, 1);
     assert.deepEqual(records[0], record);
     assert.equal(readRecords(sessionDbPath(dir, "other"))[0]?.writeMs, null);
+    assert.equal(readRecords(sessionDbPath(dir, "other"))[0]?.toolName, "codemode_o");
     assert.deepEqual(
       listSessionDbPaths(dir).map((file) => file.slice(dir.length + 1)),
       ["other.sqlite", "sess.sqlite"],
@@ -76,6 +79,51 @@ describe("sqlite store", () => {
       readBenchRecords(dir).map((item) => item.toolCallId),
       ["call-1", "call-2"],
     );
+  });
+
+  it("adds tool_name when an older runs table is opened", () => {
+    const file = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "old.sqlite");
+    const db = new DatabaseSync(file);
+    db.exec(`
+      CREATE TABLE runs (
+        schema INTEGER NOT NULL,
+        recorded_at TEXT NOT NULL,
+        session_id TEXT,
+        session_file TEXT,
+        cwd TEXT,
+        provider TEXT,
+        model TEXT,
+        thinking_level TEXT,
+        turn_index INTEGER,
+        tool_call_id TEXT NOT NULL,
+        write_ms REAL,
+        execute_ms REAL,
+        outcome TEXT NOT NULL,
+        code_chars INTEGER,
+        code_bytes INTEGER,
+        code_lines INTEGER,
+        code_sha256 TEXT,
+        has_options_line INTEGER,
+        output_chars INTEGER,
+        nested_call_count INTEGER,
+        nested_execute_ms REAL
+      )
+    `);
+    db.prepare(
+      "INSERT INTO runs (schema, recorded_at, tool_call_id, outcome) VALUES (1, ?, ?, 'ok')",
+    ).run("2026-10-21T17:00:00.000Z", "old-call");
+    db.close();
+
+    const [loaded] = readRecords(file);
+    assert.equal(loaded?.toolCallId, "old-call");
+    assert.equal(loaded?.toolName, null);
+
+    insertRecord(file, { ...record, toolCallId: "new-call", toolName: "codemode_o" });
+    const names = readRecords(file).map((item) => [item.toolCallId, item.toolName]);
+    assert.deepEqual(names, [
+      ["old-call", null],
+      ["new-call", "codemode_o"],
+    ]);
   });
 
   it("skips a row whose schema is not the current one", () => {

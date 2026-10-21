@@ -16,6 +16,7 @@ function record(overrides: Partial<BenchRecord> & Pick<BenchRecord, "toolCallId"
     model: "claude-sonnet",
     thinkingLevel: "high",
     turnIndex: 0,
+    toolName: "codemode",
     writeMs: null,
     executeMs: null,
     codeChars: null,

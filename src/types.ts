@@ -1,5 +1,5 @@
-/** Tool name of Pi's built-in code mode tool. */
-export const CODEMODE_TOOL_NAME = "codemode";
+/** Tool names that open a bench record: Pi's code mode, and `codemode_o`. */
+export const CODEMODE_TOOL_NAMES = ["codemode", "codemode_o"] as const;
 
 /** Row schema stored in the SQLite `runs` table. Bump when a field changes meaning. */
 export const SCHEMA_VERSION = 1 as const;
@@ -10,7 +10,7 @@ export const ENTRY_TYPE = "codemode-bench";
 export type Outcome = "ok" | "error" | "not_run";
 
 /**
- * One top-level `codemode` invocation.
+ * One top-level `codemode` or `codemode_o` invocation.
  * The script source is never stored. `codeSha256` is a 16-hex prefix so
  * repeated scripts can be grouped without keeping the text.
  */
@@ -25,6 +25,8 @@ export interface BenchRecord {
   thinkingLevel: string | null;
   turnIndex: number | null;
   toolCallId: string;
+  /** `codemode` or `codemode_o`. Null on rows written before this column existed. */
+  toolName: string | null;
   /** Monotonic milliseconds from `toolcall_start` to `toolcall_end`. */
   writeMs: number | null;
   /** Pi's `durationMs` for `execute()`. Null when the tool did not run. */

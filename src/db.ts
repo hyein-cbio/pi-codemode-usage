@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS runs (
   thinking_level TEXT,
   turn_index INTEGER,
   tool_call_id TEXT NOT NULL,
+  tool_name TEXT,
   write_ms REAL,
   execute_ms REAL,
   outcome TEXT NOT NULL,
@@ -76,12 +77,12 @@ export function insertRecord(file: string, record: BenchRecord): void {
     db.prepare(
       `INSERT INTO runs (
         schema, recorded_at, session_id, session_file, cwd, provider, model,
-        thinking_level, turn_index, tool_call_id, write_ms, execute_ms, outcome,
+        thinking_level, turn_index, tool_call_id, tool_name, write_ms, execute_ms, outcome,
         code_chars, code_bytes, code_lines, code_sha256, has_options_line,
         output_chars, nested_call_count, nested_execute_ms
       ) VALUES (
         $schema, $recorded_at, $session_id, $session_file, $cwd, $provider, $model,
-        $thinking_level, $turn_index, $tool_call_id, $write_ms, $execute_ms, $outcome,
+        $thinking_level, $turn_index, $tool_call_id, $tool_name, $write_ms, $execute_ms, $outcome,
         $code_chars, $code_bytes, $code_lines, $code_sha256, $has_options_line,
         $output_chars, $nested_call_count, $nested_execute_ms
       )`,
@@ -96,6 +97,7 @@ export function insertRecord(file: string, record: BenchRecord): void {
       $thinking_level: record.thinkingLevel,
       $turn_index: record.turnIndex,
       $tool_call_id: record.toolCallId,
+      $tool_name: record.toolName,
       $write_ms: record.writeMs,
       $execute_ms: record.executeMs,
       $outcome: record.outcome,
@@ -119,7 +121,7 @@ export function readRecords(file: string, filter?: ReadFilter): BenchRecord[] {
       .prepare(
         `SELECT
           schema, recorded_at, session_id, session_file, cwd, provider, model,
-          thinking_level, turn_index, tool_call_id, write_ms, execute_ms, outcome,
+          thinking_level, turn_index, tool_call_id, tool_name, write_ms, execute_ms, outcome,
           code_chars, code_bytes, code_lines, code_sha256, has_options_line,
           output_chars, nested_call_count, nested_execute_ms
         FROM runs
@@ -136,6 +138,13 @@ export function readRecords(file: string, filter?: ReadFilter): BenchRecord[] {
   });
 }
 
+/** `CREATE TABLE IF NOT EXISTS` does not add columns to a table from an older build. */
+function ensureToolNameColumn(db: DatabaseSync): void {
+  const columns = db.prepare("PRAGMA table_info(runs)").all();
+  const hasToolName = columns.some((column) => column.name === "tool_name");
+  if (!hasToolName) db.exec("ALTER TABLE runs ADD COLUMN tool_name TEXT");
+}
+
 function withDb<T>(file: string, fn: (db: DatabaseSync) => T): T {
   mkdirSync(dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
@@ -143,6 +152,7 @@ function withDb<T>(file: string, fn: (db: DatabaseSync) => T): T {
     db.exec("PRAGMA busy_timeout = 5000");
     db.exec("PRAGMA journal_mode = WAL");
     db.exec(SCHEMA);
+    ensureToolNameColumn(db);
     return fn(db);
   } finally {
     db.close();
@@ -172,6 +182,7 @@ function toRecord(row: Record<string, SQLOutputValue>): BenchRecord | null {
     thinkingLevel: text(row.thinking_level),
     turnIndex: numberOrNull(row.turn_index),
     toolCallId,
+    toolName: text(row.tool_name),
     writeMs: numberOrNull(row.write_ms),
     executeMs: numberOrNull(row.execute_ms),
     outcome: outcome as Outcome,

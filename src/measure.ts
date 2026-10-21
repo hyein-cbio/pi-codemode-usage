@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 import {
-  CODEMODE_TOOL_NAME,
+  CODEMODE_TOOL_NAMES,
   SCHEMA_VERSION,
   systemClock,
   type BenchRecord,
@@ -9,6 +9,8 @@ import {
   type Outcome,
   type SessionMeta,
 } from "./types.ts";
+
+const TRACKED_TOOL_NAMES: ReadonlySet<string> = new Set(CODEMODE_TOOL_NAMES);
 
 /** Assistant stream event, either Pi's in-process shape or the JSON wire shape. */
 export interface LooseAssistantEvent {
@@ -41,6 +43,7 @@ interface OpenWrite {
 
 interface PendingCall {
   toolCallId: string;
+  toolName: string;
   writeMs: number | null;
   provider: string | null;
   model: string | null;
@@ -93,6 +96,10 @@ export function readModel(message: unknown): { provider: string | null; model: s
     provider: typeof record.provider === "string" ? record.provider : null,
     model: typeof record.model === "string" ? record.model : null,
   };
+}
+
+function isTrackedTool(name: string | undefined): name is string {
+  return name !== undefined && TRACKED_TOOL_NAMES.has(name);
 }
 
 function blockName(event: LooseAssistantEvent): string | undefined {
@@ -156,7 +163,7 @@ function emptyCode(): Pick<
 }
 
 /**
- * Tracks each top-level `codemode` call.
+ * Tracks each top-level `codemode` or `codemode_o` call.
  *
  * Write time starts when the assistant stream opens that tool-call block and
  * stops when the arguments are complete. Execution time is Pi's own
@@ -164,15 +171,13 @@ function emptyCode(): Pick<
  */
 export class CodemodeRecorder {
   private readonly clock: Clock;
-  private readonly toolName: string;
   private turnIndex: number | null = null;
   private readonly open = new Map<number, OpenWrite>();
   private readonly pending = new Map<string, PendingCall>();
   private readonly done = new Set<string>();
 
-  constructor(options?: { clock?: Clock; toolName?: string }) {
+  constructor(options?: { clock?: Clock }) {
     this.clock = options?.clock ?? systemClock;
-    this.toolName = options?.toolName ?? CODEMODE_TOOL_NAME;
   }
 
   setTurn(turnIndex: number): void {
@@ -207,7 +212,7 @@ export class CodemodeRecorder {
   }
 
   onExecutionEnd(event: ExecutionEnd, meta: SessionMeta): BenchRecord | null {
-    if (event.toolName !== this.toolName || event.parentToolCallId !== undefined) return null;
+    if (!isTrackedTool(event.toolName) || event.parentToolCallId !== undefined) return null;
     if (this.done.has(event.toolCallId)) return null;
 
     const call = this.pending.get(event.toolCallId);
@@ -216,7 +221,7 @@ export class CodemodeRecorder {
 
     const ran = typeof event.durationMs === "number" && Number.isFinite(event.durationMs);
     const outcome: Outcome = !ran ? "not_run" : event.isError ? "error" : "ok";
-    return this.toRecord(call, event.toolCallId, meta, {
+    return this.toRecord(call, event.toolCallId, call?.toolName ?? event.toolName, meta, {
       executeMs: ran ? roundMs(event.durationMs as number) : null,
       outcome,
       result: event.result,
@@ -230,7 +235,7 @@ export class CodemodeRecorder {
       if (this.done.has(call.toolCallId)) continue;
       this.done.add(call.toolCallId);
       records.push(
-        this.toRecord(call, call.toolCallId, meta, {
+        this.toRecord(call, call.toolCallId, call.toolName, meta, {
           executeMs: null,
           outcome: "not_run",
           result: undefined,
@@ -245,7 +250,7 @@ export class CodemodeRecorder {
   private openWrite(event: LooseAssistantEvent): void {
     if (event.contentIndex === undefined) return;
     const name = event.toolName ?? blockName(event);
-    if (name !== undefined && name !== this.toolName) {
+    if (name !== undefined && !isTrackedTool(name)) {
       this.open.delete(event.contentIndex);
       return;
     }
@@ -256,14 +261,14 @@ export class CodemodeRecorder {
     if (event.contentIndex === undefined) return;
     const name = event.toolName ?? blockName(event);
     if (name === undefined) return;
-    if (name !== this.toolName) this.open.delete(event.contentIndex);
+    if (!isTrackedTool(name)) this.open.delete(event.contentIndex);
   }
 
   private closeWrite(event: LooseAssistantEvent, message: unknown): void {
     const name = event.toolCall?.name ?? event.toolName ?? blockName(event);
     const open = event.contentIndex === undefined ? undefined : this.open.get(event.contentIndex);
     if (event.contentIndex !== undefined) this.open.delete(event.contentIndex);
-    if (name !== this.toolName) return;
+    if (!isTrackedTool(name)) return;
 
     const toolCallId = event.toolCall?.id ?? event.id;
     if (toolCallId === undefined || toolCallId.length === 0) return;
@@ -276,6 +281,7 @@ export class CodemodeRecorder {
 
     this.pending.set(toolCallId, {
       toolCallId,
+      toolName: name,
       writeMs,
       provider: model.provider,
       model: model.model,
@@ -287,6 +293,7 @@ export class CodemodeRecorder {
   private toRecord(
     call: PendingCall | undefined,
     toolCallId: string,
+    toolName: string,
     meta: SessionMeta,
     execution: { executeMs: number | null; outcome: Outcome; result: unknown },
   ): BenchRecord {
@@ -302,6 +309,7 @@ export class CodemodeRecorder {
       thinkingLevel: meta.thinkingLevel,
       turnIndex: call?.turnIndex ?? meta.turnIndex,
       toolCallId,
+      toolName,
       writeMs: call?.writeMs ?? null,
       executeMs: execution.executeMs,
       outcome: execution.outcome,

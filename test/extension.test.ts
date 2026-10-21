@@ -147,6 +147,7 @@ describe("codemode bench extension", () => {
 
     const [record] = readRecords(dbPath);
     assert.ok(record);
+    assert.equal(record.toolName, "codemode");
     assert.equal(record.writeMs, 1250);
     assert.equal(record.executeMs, 80);
     assert.equal(record.sessionId, "sess-1");
@@ -225,6 +226,7 @@ describe("codemode bench extension", () => {
     const records = readRecords(dbPath);
     assert.equal(records.length, 1);
     assert.equal(records[0]?.toolCallId, "code-1");
+    assert.equal(records[0]?.toolName, "codemode");
     assert.equal(records[0]?.writeMs, 250);
     assert.equal(records[0]?.executeMs, null);
     assert.equal(records[0]?.outcome, "not_run");

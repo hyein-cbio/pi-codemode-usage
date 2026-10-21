@@ -18,11 +18,10 @@ export interface BenchExtensionOptions {
   /** Directory of per-session SQLite files. Defaults to ~/.pi/agent/codemode-bench/. */
   dbDir?: string;
   clock?: Clock;
-  toolName?: string;
 }
 
 /**
- * Record every top-level `codemode` call.
+ * Record every top-level `codemode` or `codemode_o` call.
  *
  * Write time is the monotonic gap from `toolcall_start` to `toolcall_end`
  * for that tool call: how long the model spent streaming the script.
@@ -31,7 +30,7 @@ export interface BenchExtensionOptions {
  */
 export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}) {
   const dbDir = options.dbDir ?? resolveBenchDir();
-  const recorder = new CodemodeRecorder({ clock: options.clock, toolName: options.toolName });
+  const recorder = new CodemodeRecorder({ clock: options.clock });
   let logErrorNotified = false;
 
   return function codemodeBench(pi: ExtensionAPI): void {
