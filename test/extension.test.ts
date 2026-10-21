@@ -7,7 +7,7 @@ import { describe, it } from "node:test";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { createCodemodeBenchExtension } from "../extensions/codemode-bench.ts";
-import { readRecords } from "../src/db.ts";
+import { readRecords, sessionDbPath } from "../src/db.ts";
 import type { Clock } from "../src/types.ts";
 
 interface Harness {
@@ -19,7 +19,7 @@ interface Harness {
   entries: unknown[];
 }
 
-function harness(dbPath: string, clock: Clock): Harness {
+function harness(dbDir: string, clock: Clock): Harness {
   const handlers = new Map<string, ((event: unknown, ctx: FakeCtx) => unknown)[]>();
   let command: ((args: string, ctx: FakeCtx) => Promise<void>) | undefined;
   let status: string | undefined;
@@ -62,7 +62,7 @@ function harness(dbPath: string, clock: Clock): Harness {
     },
   };
 
-  createCodemodeBenchExtension({ dbPath, clock })(pi as unknown as ExtensionAPI);
+  createCodemodeBenchExtension({ dbDir, clock })(pi as unknown as ExtensionAPI);
 
   return {
     notifications,
@@ -107,8 +107,9 @@ function manualClock(): { clock: Clock; set: (ms: number) => void } {
 describe("codemode bench extension", () => {
   it("writes a log line when codemode streams and then runs", async () => {
     const time = manualClock();
-    const dbPath = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.sqlite");
-    const bench = harness(dbPath, time.clock);
+    const dbDir = mkdtempSync(join(tmpdir(), "codemode-bench-"));
+    const dbPath = sessionDbPath(dbDir, "sess-1");
+    const bench = harness(dbDir, time.clock);
     const code = "return tools.ls({ path: '.' })\n";
 
     await bench.emit("turn_start", { type: "turn_start", turnIndex: 3, timestamp: 0 });
@@ -172,8 +173,9 @@ describe("codemode bench extension", () => {
 
   it("does not record other tools, and keeps an unrun script at agent end", async () => {
     const time = manualClock();
-    const dbPath = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.sqlite");
-    const bench = harness(dbPath, time.clock);
+    const dbDir = mkdtempSync(join(tmpdir(), "codemode-bench-"));
+    const dbPath = sessionDbPath(dbDir, "sess-1");
+    const bench = harness(dbDir, time.clock);
 
     await bench.emit("message_update", {
       type: "message_update",

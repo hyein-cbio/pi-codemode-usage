@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { formatSummary } from "../src/format.ts";
-import { insertRecord, readRecords, resolveDbPath } from "../src/db.ts";
+import { insertRecord, readBenchRecords, readRecords, resolveBenchDir, sessionDbPath } from "../src/db.ts";
 import { CodemodeRecorder, type ExecutionEnd } from "../src/measure.ts";
 import { summarize } from "../src/summary.ts";
 import {
@@ -15,8 +15,8 @@ import {
 const WIDGET_KEY = "codemode-bench";
 
 export interface BenchExtensionOptions {
-  /** Override the SQLite path. Defaults to ~/.pi/agent/codemode-bench/runs.sqlite. */
-  dbPath?: string;
+  /** Directory of per-session SQLite files. Defaults to ~/.pi/agent/codemode-bench/. */
+  dbDir?: string;
   clock?: Clock;
   toolName?: string;
 }
@@ -30,7 +30,7 @@ export interface BenchExtensionOptions {
  * `execute()` ran, including nested tool calls inside the script.
  */
 export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}) {
-  const dbPath = options.dbPath ?? resolveDbPath();
+  const dbDir = options.dbDir ?? resolveBenchDir();
   const recorder = new CodemodeRecorder({ clock: options.clock, toolName: options.toolName });
   let logErrorNotified = false;
 
@@ -38,7 +38,7 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
     const commit = (records: readonly BenchRecord[], ctx: ExtensionContext): void => {
       for (const record of records) {
         try {
-          insertRecord(dbPath, record);
+          insertRecord(sessionDbPath(dbDir, record.sessionId), record);
         } catch (error) {
           if (!logErrorNotified) {
             logErrorNotified = true;
@@ -104,7 +104,7 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
           return;
         }
         if (command === "path") {
-          safeNotify(ctx, dbPath, "info");
+          safeNotify(ctx, sessionDbPath(dbDir, ctx.sessionManager.getSessionId()), "info");
           return;
         }
         if (command !== "" && command !== "session" && command !== "all") {
@@ -114,8 +114,8 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
 
         const scope = command === "all" ? "all" : "session";
         const sessionId = ctx.sessionManager.getSessionId();
-        const records =
-          scope === "all" ? readRecords(dbPath) : readRecords(dbPath, { sessionId });
+        const dbPath = scope === "all" ? dbDir : sessionDbPath(dbDir, sessionId);
+        const records = scope === "all" ? readBenchRecords(dbDir) : readRecords(dbPath);
         const lines = formatSummary(summarize(records), {
           title: scope === "all" ? "코드 모드 벤치 · 전체" : "코드 모드 벤치 · 이 세션",
           dbPath,

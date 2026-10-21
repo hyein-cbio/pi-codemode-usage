@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync, type SQLInputValue, type SQLOutputValue } from "node:sqlite";
@@ -39,12 +39,36 @@ export interface ReadFilter {
   sessionId?: string;
 }
 
-export function resolveDbPath(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
+/** Directory that holds one `<session-id>.sqlite` file per Pi session. */
+export function resolveBenchDir(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
   const override = env.CODEMODE_BENCH_DB?.trim() || env.CODEMODE_BENCH_LOG?.trim();
   if (override) return expandHome(override, home);
   const configured = env.PI_CODING_AGENT_DIR?.trim();
   const agentDir = configured ? expandHome(configured, home) : join(home, ".pi", "agent");
-  return join(agentDir, "codemode-bench", "runs.sqlite");
+  return join(agentDir, "codemode-bench");
+}
+
+/** `dir/<session-id>.sqlite`. The id is restricted to a single path segment. */
+export function sessionDbPath(dir: string, sessionId: string | null): string {
+  return join(dir, `${safeSessionId(sessionId)}.sqlite`);
+}
+
+export function listSessionDbPaths(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".sqlite"))
+    .sort()
+    .map((name) => join(dir, name));
+}
+
+/** Every session file in the directory, ordered by record time. */
+export function readBenchRecords(dir: string): BenchRecord[] {
+  const records = listSessionDbPaths(dir).flatMap((file) => readRecords(file));
+  records.sort(
+    (left, right) =>
+      left.recordedAt.localeCompare(right.recordedAt) || left.toolCallId.localeCompare(right.toolCallId),
+  );
+  return records;
 }
 
 export function insertRecord(file: string, record: BenchRecord): void {
@@ -182,4 +206,11 @@ function expandHome(path: string, home: string): string {
   if (path === "~") return home;
   if (path.startsWith("~/")) return join(home, path.slice(2));
   return path;
+}
+
+/** Pi session ids are alphanumeric plus `.`, `_`, and `-`. Anything else cannot be a filename. */
+function safeSessionId(sessionId: string | null): string {
+  const raw = sessionId?.trim() ?? "";
+  if (!/^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(raw)) return "no-session";
+  return raw;
 }

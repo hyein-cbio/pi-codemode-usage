@@ -35,7 +35,7 @@ npm run replay
 ```bash
 npm run report
 npm run report -- --session <session-id>
-npm run report -- --file /path/to/runs.sqlite
+npm run report -- --file /path/to/<session-id>.sqlite
 ```
 
 이 저장소에서 Pi를 띄울 때:
@@ -75,18 +75,42 @@ pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
 
 | 명령 | 동작 |
 | --- | --- |
-| `/codemode-bench` | 이 세션 요약. 편집기 위에 위젯으로 남음 |
-| `/codemode-bench all` | DB 전체 |
-| `/codemode-bench path` | DB 경로 |
+| `/codemode-bench` | 이 세션 파일 요약. 편집기 위에 위젯으로 남음 |
+| `/codemode-bench all` | 디렉터리의 세션 파일 전부 |
+| `/codemode-bench path` | 이 세션 파일 경로 |
 | `/codemode-bench hide` | 요약 위젯 닫기 |
 
 요약은 횟수, 성공/실패/미실행, 쓰기·실행의 p50·p95·평균입니다. 모델이 둘 이상이면 모델별 p50도 보여 줍니다.
 
 ## 저장
 
-기록은 SQLite 파일입니다. Node 내장 `node:sqlite`를 쓰므로 네이티브 모듈을 따로 설치하지 않습니다. Node 22에서는 이 모듈이 실험 기능이라, Pi를 띄울 때 `ExperimentalWarning`이 한 번 나올 수 있습니다. 기본 경로는 `~/.pi/agent/codemode-bench/runs.sqlite`입니다. `PI_CODING_AGENT_DIR`이 있으면 그 아래 `codemode-bench/runs.sqlite`입니다. `CODEMODE_BENCH_DB`가 있으면 그 파일을 씁니다.
+기록은 세션마다 SQLite 파일 하나입니다. Node 내장 `node:sqlite`를 쓰므로 네이티브 모듈을 따로 설치하지 않습니다. Node 22에서는 이 모듈이 실험 기능이라, Pi를 띄울 때 `ExperimentalWarning`이 한 번 나올 수 있습니다.
 
-테이블은 `runs`이고, 한 행이 호출 하나입니다. `schema` 열은 `1`입니다. `outcome`은 `ok`, `error`, `not_run` 중 하나입니다. 스크립트 본문은 없고, `code_sha256`은 앞 16자리입니다. `has_options_line`은 `1`, `0`, 또는 `NULL`입니다.
+```text
+~/.pi/agent/codemode-bench/<session-id>.sqlite
+```
+
+`PI_CODING_AGENT_DIR`이 있으면 그 아래 `codemode-bench/`입니다. `CODEMODE_BENCH_DB`가 있으면 그 디렉터리를 씁니다. 세션 id는 Pi와 같이 영숫자와 `.` `_` `-`만 파일명에 들어가고, 그 밖의 id는 `no-session.sqlite`입니다.
+
+테이블은 `runs`이고, 한 행이 `codemode` 호출 하나입니다. `schema` 열은 `1`입니다.
+
+| 열 | 의미 |
+| --- | --- |
+| `recorded_at` | 기록 시각 (ISO-8601) |
+| `session_id` | Pi 세션 id. 파일명과 같습니다 |
+| `session_file` | Pi 세션 JSONL 경로 |
+| `cwd` | 작업 디렉터리 |
+| `provider`, `model`, `thinking_level` | 그 호출의 모델 |
+| `turn_index` | 에이전트 턴 번호 |
+| `tool_call_id` | 툴 호출 id |
+| `write_ms` | 스크립트를 스트리밍한 시간. 못 재면 `NULL` |
+| `execute_ms` | `execute()` 시간. 실행되지 않으면 `NULL` |
+| `outcome` | `ok`, `error`, `not_run` |
+| `code_chars`, `code_bytes`, `code_lines` | 스크립트 크기. 본문은 없음 |
+| `code_sha256` | 스크립트 SHA-256 앞 16자리 |
+| `has_options_line` | 첫 줄이 `// @options:`이면 `1`, 아니면 `0`, 코드를 못 읽으면 `NULL` |
+| `output_chars` | 결과 텍스트 길이 |
+| `nested_call_count`, `nested_execute_ms` | 스크립트 안의 툴 호출 수와 실행 시간 합 |
 
 ```sql
 SELECT provider, model,
@@ -98,7 +122,7 @@ GROUP BY provider, model;
 ```
 
 ```bash
-sqlite3 ~/.pi/agent/codemode-bench/runs.sqlite
+sqlite3 ~/.pi/agent/codemode-bench/<session-id>.sqlite
 ```
 
 같은 기록이 세션 커스텀 엔트리 `codemode-bench`로도 붙습니다. 모델 컨텍스트에는 넣지 않습니다. 쓰기는 WAL 모드이고 `busy_timeout`은 5초입니다. `npm run report`를 Pi가 기록하는 동안 돌려도 됩니다.
