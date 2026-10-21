@@ -12,7 +12,7 @@ GitHub에서 설치합니다.
 pi install git:github.com/hyein-cbio/pi-codemode-usage
 ```
 
-이 버전을 고정하려면 `pi install git:github.com/hyein-cbio/pi-codemode-usage@v0.1.0`입니다. 이미 켜진 세션이면 `/reload` 합니다.
+태그 `v0.1.0`은 이름을 `pi-codemode-usage`로 바꾸기 전 커밋입니다. 그 태그를 설치하면 패키지 이름과 기록 경로가 아직 `bench`입니다. 이미 켜진 세션이면 `/reload` 합니다.
 
 `codemode`는 이 패키지가 켜 주지 않습니다. 사용자 설정 `~/.pi/agent/settings.json`에 다음이 있어야 기록이 쌓입니다.
 
