@@ -1,4 +1,3 @@
-import type { BenchRecord } from "./types.ts";
 import type { DurationStats, Summary } from "./summary.ts";
 
 export function formatDuration(ms: number): string {
@@ -9,15 +8,6 @@ export function formatDuration(ms: number): string {
   const seconds = abs / 1000;
   const digits = seconds >= 10 ? 1 : 2;
   return `${sign}${seconds.toFixed(digits)}s`;
-}
-
-export function formatStatus(record: BenchRecord): string {
-  const parts = ["codemode"];
-  if (record.writeMs !== null) parts.push(`쓰기 ${formatDuration(record.writeMs)}`);
-  if (record.executeMs !== null) parts.push(`실행 ${formatDuration(record.executeMs)}`);
-  else parts.push("실행 안 됨");
-  if (record.outcome === "error") parts.push("실패");
-  return parts.join(" · ");
 }
 
 export function formatSummary(summary: Summary, options: { title: string; dbPath: string }): string[] {

@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-import { formatStatus, formatSummary } from "../src/format.ts";
+import { formatSummary } from "../src/format.ts";
 import { insertRecord, readRecords, resolveDbPath } from "../src/db.ts";
 import { CodemodeRecorder, type ExecutionEnd } from "../src/measure.ts";
 import { summarize } from "../src/summary.ts";
@@ -12,7 +12,6 @@ import {
   type SessionMeta,
 } from "../src/types.ts";
 
-const STATUS_KEY = "codemode-bench";
 const WIDGET_KEY = "codemode-bench";
 
 export interface BenchExtensionOptions {
@@ -53,14 +52,12 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
         } catch {
           // The SQLite row is the benchmark. The session entry is a copy.
         }
-        safeStatus(ctx, formatStatus(record));
       }
     };
 
     pi.on("session_start", (_event, ctx) => {
       recorder.reset();
       logErrorNotified = false;
-      safeStatus(ctx, undefined);
       safeWidget(ctx, undefined);
     });
 
@@ -149,14 +146,6 @@ function safeNotify(ctx: ExtensionContext, message: string, type: "info" | "warn
     ctx.ui.notify(message, type);
   } catch {
     // Headless modes can omit a notifier.
-  }
-}
-
-function safeStatus(ctx: ExtensionContext, text: string | undefined): void {
-  try {
-    ctx.ui.setStatus(STATUS_KEY, text);
-  } catch {
-    // Headless modes can omit a footer.
   }
 }
 

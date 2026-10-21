@@ -153,7 +153,7 @@ describe("codemode bench extension", () => {
     assert.equal(record.nestedCallCount, 1);
     assert.equal(record.nestedExecuteMs, 70);
     assert.equal(JSON.stringify(record).includes("tools.ls"), false);
-    assert.equal(bench.status(), "codemode · 쓰기 1.25s · 실행 80ms");
+    assert.equal(bench.status(), undefined);
     assert.equal(bench.entries.length, 1);
     assert.equal(readRecords(dbPath).length, 1);
 
@@ -226,6 +226,6 @@ describe("codemode bench extension", () => {
     assert.equal(records[0]?.writeMs, 250);
     assert.equal(records[0]?.executeMs, null);
     assert.equal(records[0]?.outcome, "not_run");
-    assert.equal(bench.status(), "codemode · 쓰기 250ms · 실행 안 됨");
+    assert.equal(bench.status(), undefined);
   });
 });

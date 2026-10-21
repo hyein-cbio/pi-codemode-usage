@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { formatDuration, formatStatus, formatSummary } from "../src/format.ts";
+import { formatDuration, formatSummary } from "../src/format.ts";
 import { durationStats, summarize } from "../src/summary.ts";
 import type { BenchRecord } from "../src/types.ts";
 
@@ -69,15 +69,10 @@ describe("summary", () => {
 });
 
 describe("format", () => {
-  it("formats durations and the footer status", () => {
+  it("formats durations", () => {
     assert.equal(formatDuration(320), "320ms");
     assert.equal(formatDuration(1500), "1.50s");
     assert.equal(formatDuration(12500), "12.5s");
-    const status = formatStatus(
-      record({ toolCallId: "a", outcome: "error", writeMs: 1500, executeMs: 320 }),
-    );
-    assert.equal(status, "codemode · 쓰기 1.50s · 실행 320ms · 실패");
-    assert.match(formatStatus(record({ toolCallId: "b", outcome: "not_run", writeMs: 10 })), /실행 안 됨/);
   });
 
   it("renders an empty summary with the log path", () => {

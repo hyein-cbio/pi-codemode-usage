@@ -71,7 +71,7 @@ pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
 
 ## 세션 안에서
 
-호출이 끝날 때마다 상태 줄에 `codemode · 쓰기 1.25s · 실행 80ms`처럼 찍힙니다.
+호출이 끝나면 `runs` 테이블에만 남습니다.
 
 | 명령 | 동작 |
 | --- | --- |
