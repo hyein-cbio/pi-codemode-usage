@@ -1,4 +1,4 @@
-import type { BenchRecord } from "./types.ts";
+import type { UsageRecord } from "./types.ts";
 
 export interface DurationStats {
   n: number;
@@ -55,8 +55,8 @@ export function durationStats(values: readonly number[]): DurationStats | null {
   };
 }
 
-export function summarize(records: readonly BenchRecord[]): Summary {
-  const groups = new Map<string, BenchRecord[]>();
+export function summarize(records: readonly UsageRecord[]): Summary {
+  const groups = new Map<string, UsageRecord[]>();
   for (const record of records) {
     const key = `${record.provider ?? ""}\n${record.model ?? ""}`;
     const group = groups.get(key);
@@ -89,7 +89,7 @@ export function summarize(records: readonly BenchRecord[]): Summary {
   };
 }
 
-function numbers(records: readonly BenchRecord[], key: "writeMs" | "executeMs" | "codeChars"): number[] {
+function numbers(records: readonly UsageRecord[], key: "writeMs" | "executeMs" | "codeChars"): number[] {
   const values: number[] = [];
   for (const record of records) {
     const value = record[key];

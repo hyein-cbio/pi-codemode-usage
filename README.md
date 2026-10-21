@@ -1,6 +1,6 @@
-# pi-codemode-bench
+# pi-codemode-usage
 
-Pi 코딩 에이전트의 `codemode`와 `codemode_o` 툴이 돌 때마다, 모델이 스크립트를 쓰는 시간과 그 스크립트가 실행되는 시간을 갈라 기록하는 확장입니다. 실사용 세션에서 코드 모드 비용을 보기 위한 벤치입니다. 어느 툴이 호출됐는지도 같은 행에 남깁니다.
+Pi 코딩 에이전트의 `codemode`와 `codemode_o` 툴이 돌 때마다, 모델이 스크립트를 쓰는 시간과 그 스크립트가 실행되는 시간을 갈라 기록하는 확장입니다. 실사용 세션의 코드 모드 비용을 남기는 기록기입니다. 어느 툴이 호출됐는지도 같은 행에 남깁니다.
 
 확장 팩 하나로 로컬에서 바로 켜집니다. Pi가 TypeScript를 직접 로드하므로 빌드 단계는 없습니다.
 
@@ -9,10 +9,10 @@ Pi 코딩 에이전트의 `codemode`와 `codemode_o` 툴이 돌 때마다, 모�
 GitHub에서 설치합니다.
 
 ```bash
-pi install git:github.com/hyein-cbio/pi-codemode-bench
+pi install git:github.com/hyein-cbio/pi-codemode-usage
 ```
 
-이 버전을 고정하려면 `pi install git:github.com/hyein-cbio/pi-codemode-bench@v0.1.0`입니다. 이미 켜진 세션이면 `/reload` 합니다.
+이 버전을 고정하려면 `pi install git:github.com/hyein-cbio/pi-codemode-usage@v0.1.0`입니다. 이미 켜진 세션이면 `/reload` 합니다.
 
 `codemode`는 이 패키지가 켜 주지 않습니다. 사용자 설정 `~/.pi/agent/settings.json`에 다음이 있어야 기록이 쌓입니다.
 
@@ -75,12 +75,12 @@ npm run dev
 }
 ```
 
-`packages` 경로는 `.pi/settings.json` 기준입니다. `..`가 이 저장소 루트입니다. 프로젝트를 신뢰하면 Pi가 `extensions/codemode-bench.ts`를 로드하고 `codemode`를 켭니다.
+`packages` 경로는 `.pi/settings.json` 기준입니다. `..`가 이 저장소 루트입니다. 프로젝트를 신뢰하면 Pi가 `extensions/codemode-usage.ts`를 로드하고 `codemode`를 켭니다.
 
 프로젝트 설정을 무시하고 이 파일만 한 번 로드하려면:
 
 ```bash
-pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
+pi -e ./extensions/codemode-usage.ts --tools +codemode --no-approve
 ```
 
 신뢰된 프로젝트에서 `-e`만 더하면 패키지와 파일이 같이 로드되어 같은 호출이 두 번 기록됩니다.
@@ -93,10 +93,10 @@ pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
 
 | 명령 | 동작 |
 | --- | --- |
-| `/codemode-bench` | 이 세션 파일 요약. 편집기 위에 위젯으로 남음 |
-| `/codemode-bench all` | 디렉터리의 세션 파일 전부 |
-| `/codemode-bench path` | 이 세션 파일 경로 |
-| `/codemode-bench hide` | 요약 위젯 닫기 |
+| `/codemode-usage` | 이 세션 파일 요약. 편집기 위에 위젯으로 남음 |
+| `/codemode-usage all` | 디렉터리의 세션 파일 전부 |
+| `/codemode-usage path` | 이 세션 파일 경로 |
+| `/codemode-usage hide` | 요약 위젯 닫기 |
 
 요약은 횟수, 성공/실패/미실행, 쓰기·실행의 p50·p95·평균입니다. 모델이 둘 이상이면 모델별 p50도 보여 줍니다.
 
@@ -105,10 +105,10 @@ pi -e ./extensions/codemode-bench.ts --tools +codemode --no-approve
 기록은 세션마다 SQLite 파일 하나입니다. Node 내장 `node:sqlite`를 쓰므로 네이티브 모듈을 따로 설치하지 않습니다. Node 22에서는 이 모듈이 실험 기능이라, Pi를 띄울 때 `ExperimentalWarning`이 한 번 나올 수 있습니다.
 
 ```text
-~/.pi/agent/codemode-bench/<session-id>.sqlite
+~/.pi/agent/codemode-usage/<session-id>.sqlite
 ```
 
-`PI_CODING_AGENT_DIR`이 있으면 그 아래 `codemode-bench/`입니다. `CODEMODE_BENCH_DB`가 있으면 그 디렉터리를 씁니다. 세션 id는 Pi와 같이 영숫자와 `.` `_` `-`만 파일명에 들어가고, 그 밖의 id는 `no-session.sqlite`입니다.
+`PI_CODING_AGENT_DIR`이 있으면 그 아래 `codemode-usage/`입니다. `CODEMODE_USAGE_DB`가 있으면 그 디렉터리를 씁니다. 세션 id는 Pi와 같이 영숫자와 `.` `_` `-`만 파일명에 들어가고, 그 밖의 id는 `no-session.sqlite`입니다.
 
 테이블은 `runs`이고, 한 행이 `codemode` 또는 `codemode_o` 호출 하나입니다. `schema` 열은 `1`입니다. 이 열이 생기기 전에 만든 파일은 열 때 `tool_name`을 덧붙입니다. 그 이전 행의 `tool_name`은 `NULL`입니다.
 
@@ -141,10 +141,10 @@ GROUP BY provider, model;
 ```
 
 ```bash
-sqlite3 ~/.pi/agent/codemode-bench/<session-id>.sqlite
+sqlite3 ~/.pi/agent/codemode-usage/<session-id>.sqlite
 ```
 
-같은 기록이 세션 커스텀 엔트리 `codemode-bench`로도 붙습니다. 모델 컨텍스트에는 넣지 않습니다. 쓰기는 WAL 모드이고 `busy_timeout`은 5초입니다. `npm run report`를 Pi가 기록하는 동안 돌려도 됩니다.
+같은 기록이 세션 커스텀 엔트리 `codemode-usage`로도 붙습니다. 모델 컨텍스트에는 넣지 않습니다. 쓰기는 WAL 모드이고 `busy_timeout`은 5초입니다. `npm run report`를 Pi가 기록하는 동안 돌려도 됩니다.
 
 ## 확장을 더 넣을 때
 

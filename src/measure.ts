@@ -4,7 +4,7 @@ import {
   CODEMODE_TOOL_NAMES,
   SCHEMA_VERSION,
   systemClock,
-  type BenchRecord,
+  type UsageRecord,
   type Clock,
   type Outcome,
   type SessionMeta,
@@ -211,7 +211,7 @@ export class CodemodeRecorder {
     this.open.clear();
   }
 
-  onExecutionEnd(event: ExecutionEnd, meta: SessionMeta): BenchRecord | null {
+  onExecutionEnd(event: ExecutionEnd, meta: SessionMeta): UsageRecord | null {
     if (!isTrackedTool(event.toolName) || event.parentToolCallId !== undefined) return null;
     if (this.done.has(event.toolCallId)) return null;
 
@@ -229,8 +229,8 @@ export class CodemodeRecorder {
   }
 
   /** Calls whose script finished streaming but never executed. */
-  flush(meta: SessionMeta): BenchRecord[] {
-    const records: BenchRecord[] = [];
+  flush(meta: SessionMeta): UsageRecord[] {
+    const records: UsageRecord[] = [];
     for (const call of this.pending.values()) {
       if (this.done.has(call.toolCallId)) continue;
       this.done.add(call.toolCallId);
@@ -296,7 +296,7 @@ export class CodemodeRecorder {
     toolName: string,
     meta: SessionMeta,
     execution: { executeMs: number | null; outcome: Outcome; result: unknown },
-  ): BenchRecord {
+  ): UsageRecord {
     const nested = nestedStats(execution.result);
     return {
       schema: SCHEMA_VERSION,

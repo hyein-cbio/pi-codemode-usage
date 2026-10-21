@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-import { createCodemodeBenchExtension } from "../extensions/codemode-bench.ts";
+import { createCodemodeUsageExtension } from "../extensions/codemode-usage.ts";
 import { readRecords, sessionDbPath } from "../src/db.ts";
 import type { Clock } from "../src/types.ts";
 
@@ -62,7 +62,7 @@ function harness(dbDir: string, clock: Clock): Harness {
     },
   };
 
-  createCodemodeBenchExtension({ dbDir, clock })(pi as unknown as ExtensionAPI);
+  createCodemodeUsageExtension({ dbDir, clock })(pi as unknown as ExtensionAPI);
 
   return {
     notifications,
@@ -104,10 +104,10 @@ function manualClock(): { clock: Clock; set: (ms: number) => void } {
   };
 }
 
-describe("codemode bench extension", () => {
+describe("codemode usage extension", () => {
   it("writes a log line when codemode streams and then runs", async () => {
     const time = manualClock();
-    const dbDir = mkdtempSync(join(tmpdir(), "codemode-bench-"));
+    const dbDir = mkdtempSync(join(tmpdir(), "codemode-usage-"));
     const dbPath = sessionDbPath(dbDir, "sess-1");
     const bench = harness(dbDir, time.clock);
     const code = "return tools.ls({ path: '.' })\n";
@@ -174,7 +174,7 @@ describe("codemode bench extension", () => {
 
   it("does not record other tools, and keeps an unrun script at agent end", async () => {
     const time = manualClock();
-    const dbDir = mkdtempSync(join(tmpdir(), "codemode-bench-"));
+    const dbDir = mkdtempSync(join(tmpdir(), "codemode-usage-"));
     const dbPath = sessionDbPath(dbDir, "sess-1");
     const bench = harness(dbDir, time.clock);
 

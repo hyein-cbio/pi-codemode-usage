@@ -1,9 +1,9 @@
-import { readBenchRecords, readRecords, resolveBenchDir, sessionDbPath } from "../src/db.ts";
+import { readUsageRecords, readRecords, resolveUsageDir, sessionDbPath } from "../src/db.ts";
 import { formatSummary } from "../src/format.ts";
 import { summarize } from "../src/summary.ts";
 
 const args = process.argv.slice(2);
-let dir = resolveBenchDir();
+let dir = resolveUsageDir();
 let file: string | undefined;
 let session: string | undefined;
 
@@ -37,7 +37,7 @@ const dbPath = file ?? (session === undefined ? dir : sessionDbPath(dir, session
 const records = file
   ? readRecords(file)
   : session === undefined
-    ? readBenchRecords(dir)
+    ? readUsageRecords(dir)
     : readRecords(sessionDbPath(dir, session));
-const title = session === undefined && file === undefined ? "코드 모드 벤치 · 전체" : `코드 모드 벤치 · ${session ?? file}`;
+const title = session === undefined && file === undefined ? "코드 모드 사용 기록 · 전체" : `코드 모드 사용 기록 · ${session ?? file}`;
 console.log(formatSummary(summarize(records), { title, dbPath }).join("\n"));

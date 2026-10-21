@@ -1,5 +1,5 @@
 {
-  "name": "pi-codemode-bench",
+  "name": "pi-codemode-usage",
   "version": "0.1.0",
   "description": "Pi 코드 모드 툴이 스크립트를 쓰는 시간과 그 스크립트가 실행되는 시간을 기록합니다.",
   "type": "module",
@@ -7,11 +7,11 @@
   "author": "Hyein Cho",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hyein-cbio/pi-codemode-bench.git"
+    "url": "git+https://github.com/hyein-cbio/pi-codemode-usage.git"
   },
-  "homepage": "https://github.com/hyein-cbio/pi-codemode-bench#readme",
+  "homepage": "https://github.com/hyein-cbio/pi-codemode-usage#readme",
   "bugs": {
-    "url": "https://github.com/hyein-cbio/pi-codemode-bench/issues"
+    "url": "https://github.com/hyein-cbio/pi-codemode-usage/issues"
   },
   "publishConfig": {
     "access": "public",
@@ -21,7 +21,7 @@
     "pi-package",
     "pi-extension",
     "codemode",
-    "benchmark"
+    "usage"
   ],
   "files": [
     "extensions",
@@ -42,7 +42,7 @@
   },
   "pi": {
     "extensions": [
-      "./extensions/codemode-bench.ts"
+      "./extensions/codemode-usage.ts"
     ]
   },
   "peerDependencies": {

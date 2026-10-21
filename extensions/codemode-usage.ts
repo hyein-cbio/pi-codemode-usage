@@ -1,21 +1,21 @@
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 import { formatSummary } from "../src/format.ts";
-import { insertRecord, readBenchRecords, readRecords, resolveBenchDir, sessionDbPath } from "../src/db.ts";
+import { insertRecord, readUsageRecords, readRecords, resolveUsageDir, sessionDbPath } from "../src/db.ts";
 import { CodemodeRecorder, type ExecutionEnd } from "../src/measure.ts";
 import { summarize } from "../src/summary.ts";
 import {
   ENTRY_TYPE,
   systemClock,
-  type BenchRecord,
+  type UsageRecord,
   type Clock,
   type SessionMeta,
 } from "../src/types.ts";
 
-const WIDGET_KEY = "codemode-bench";
+const WIDGET_KEY = "codemode-usage";
 
-export interface BenchExtensionOptions {
-  /** Directory of per-session SQLite files. Defaults to ~/.pi/agent/codemode-bench/. */
+export interface UsageExtensionOptions {
+  /** Directory of per-session SQLite files. Defaults to ~/.pi/agent/codemode-usage/. */
   dbDir?: string;
   clock?: Clock;
 }
@@ -28,13 +28,13 @@ export interface BenchExtensionOptions {
  * Execute time is Pi's `durationMs` on `tool_execution_end`: how long
  * `execute()` ran, including nested tool calls inside the script.
  */
-export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}) {
-  const dbDir = options.dbDir ?? resolveBenchDir();
+export function createCodemodeUsageExtension(options: UsageExtensionOptions = {}) {
+  const dbDir = options.dbDir ?? resolveUsageDir();
   const recorder = new CodemodeRecorder({ clock: options.clock });
   let logErrorNotified = false;
 
-  return function codemodeBench(pi: ExtensionAPI): void {
-    const commit = (records: readonly BenchRecord[], ctx: ExtensionContext): void => {
+  return function codemodeUsage(pi: ExtensionAPI): void {
+    const commit = (records: readonly UsageRecord[], ctx: ExtensionContext): void => {
       for (const record of records) {
         try {
           insertRecord(sessionDbPath(dbDir, record.sessionId), record);
@@ -42,14 +42,14 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
           if (!logErrorNotified) {
             logErrorNotified = true;
             const message = error instanceof Error ? error.message : String(error);
-            safeNotify(ctx, `코드 모드 벤치를 기록하지 못했습니다: ${message}`, "error");
+            safeNotify(ctx, `코드 모드 사용 기록을 남기지 못했습니다: ${message}`, "error");
           }
           continue;
         }
         try {
           pi.appendEntry(ENTRY_TYPE, record);
         } catch {
-          // The SQLite row is the benchmark. The session entry is a copy.
+          // The SQLite row is the usage record. The session entry is a copy.
         }
       }
     };
@@ -93,13 +93,13 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
       commit(recorder.flush(sessionMeta(ctx)), ctx);
     });
 
-    pi.registerCommand("codemode-bench", {
+    pi.registerCommand("codemode-usage", {
       description: "코드 모드 작성·실행 시간 요약",
       handler: async (args, ctx) => {
         const command = args.trim();
         if (command === "hide") {
           safeWidget(ctx, undefined);
-          safeNotify(ctx, "코드 모드 벤치 요약을 숨겼습니다.", "info");
+          safeNotify(ctx, "코드 모드 사용 기록 요약을 숨겼습니다.", "info");
           return;
         }
         if (command === "path") {
@@ -107,16 +107,16 @@ export function createCodemodeBenchExtension(options: BenchExtensionOptions = {}
           return;
         }
         if (command !== "" && command !== "session" && command !== "all") {
-          safeNotify(ctx, "사용법: /codemode-bench [session|all|path|hide]", "warning");
+          safeNotify(ctx, "사용법: /codemode-usage [session|all|path|hide]", "warning");
           return;
         }
 
         const scope = command === "all" ? "all" : "session";
         const sessionId = ctx.sessionManager.getSessionId();
         const dbPath = scope === "all" ? dbDir : sessionDbPath(dbDir, sessionId);
-        const records = scope === "all" ? readBenchRecords(dbDir) : readRecords(dbPath);
+        const records = scope === "all" ? readUsageRecords(dbDir) : readRecords(dbPath);
         const lines = formatSummary(summarize(records), {
-          title: scope === "all" ? "코드 모드 벤치 · 전체" : "코드 모드 벤치 · 이 세션",
+          title: scope === "all" ? "코드 모드 사용 기록 · 전체" : "코드 모드 사용 기록 · 이 세션",
           dbPath,
         });
         if (ctx.hasUI) {
@@ -156,4 +156,4 @@ function safeWidget(ctx: ExtensionCommandContext | ExtensionContext, lines: stri
   }
 }
 
-export default createCodemodeBenchExtension();
+export default createCodemodeUsageExtension();

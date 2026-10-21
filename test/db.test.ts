@@ -5,10 +5,10 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, it } from "node:test";
 
-import { insertRecord, listSessionDbPaths, readBenchRecords, readRecords, resolveBenchDir, sessionDbPath } from "../src/db.ts";
-import type { BenchRecord } from "../src/types.ts";
+import { insertRecord, listSessionDbPaths, readUsageRecords, readRecords, resolveUsageDir, sessionDbPath } from "../src/db.ts";
+import type { UsageRecord } from "../src/types.ts";
 
-const record: BenchRecord = {
+const record: UsageRecord = {
   schema: 1,
   recordedAt: "2026-10-21T17:00:00.000Z",
   sessionId: "sess",
@@ -35,15 +35,15 @@ const record: BenchRecord = {
 
 describe("sqlite store", () => {
   it("names one file per session id", () => {
-    assert.equal(resolveBenchDir({}, "/home/hyein"), "/home/hyein/.pi/agent/codemode-bench");
+    assert.equal(resolveUsageDir({}, "/home/hyein"), "/home/hyein/.pi/agent/codemode-usage");
     assert.equal(
-      resolveBenchDir({ PI_CODING_AGENT_DIR: "~/agents" }, "/home/hyein"),
-      "/home/hyein/agents/codemode-bench",
+      resolveUsageDir({ PI_CODING_AGENT_DIR: "~/agents" }, "/home/hyein"),
+      "/home/hyein/agents/codemode-usage",
     );
-    assert.equal(resolveBenchDir({ CODEMODE_BENCH_DB: "/tmp/bench" }, "/home/hyein"), "/tmp/bench");
-    assert.equal(resolveBenchDir({ CODEMODE_BENCH_LOG: "~/bench" }, "/home/hyein"), "/home/hyein/bench");
+    assert.equal(resolveUsageDir({ CODEMODE_USAGE_DB: "/tmp/usage" }, "/home/hyein"), "/tmp/usage");
+    assert.equal(resolveUsageDir({ CODEMODE_USAGE_LOG: "~/usage" }, "/home/hyein"), "/home/hyein/usage");
 
-    const dir = "/tmp/bench";
+    const dir = "/tmp/usage";
     assert.equal(sessionDbPath(dir, "01939b3e-7c2a-7000-8000-000000000001"), join(dir, "01939b3e-7c2a-7000-8000-000000000001.sqlite"));
     assert.equal(sessionDbPath(dir, "sess-1"), join(dir, "sess-1.sqlite"));
     assert.equal(sessionDbPath(dir, "../etc/passwd"), join(dir, "no-session.sqlite"));
@@ -51,7 +51,7 @@ describe("sqlite store", () => {
   });
 
   it("writes each session to its own file", () => {
-    const dir = mkdtempSync(join(tmpdir(), "codemode-bench-"));
+    const dir = mkdtempSync(join(tmpdir(), "codemode-usage-"));
     assert.deepEqual(readRecords(sessionDbPath(dir, "sess")), []);
     insertRecord(sessionDbPath(dir, record.sessionId), record);
     insertRecord(sessionDbPath(dir, "other"), {
@@ -76,13 +76,13 @@ describe("sqlite store", () => {
       ["other.sqlite", "sess.sqlite"],
     );
     assert.deepEqual(
-      readBenchRecords(dir).map((item) => item.toolCallId),
+      readUsageRecords(dir).map((item) => item.toolCallId),
       ["call-1", "call-2"],
     );
   });
 
   it("adds tool_name when an older runs table is opened", () => {
-    const file = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "old.sqlite");
+    const file = join(mkdtempSync(join(tmpdir(), "codemode-usage-")), "old.sqlite");
     const db = new DatabaseSync(file);
     db.exec(`
       CREATE TABLE runs (
@@ -127,7 +127,7 @@ describe("sqlite store", () => {
   });
 
   it("skips a row whose schema is not the current one", () => {
-    const file = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.sqlite");
+    const file = join(mkdtempSync(join(tmpdir(), "codemode-usage-")), "runs.sqlite");
     insertRecord(file, record);
     const db = new DatabaseSync(file);
     db.prepare("UPDATE runs SET schema = 99 WHERE tool_call_id = ?").run(record.toolCallId);

@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync, type SQLInputValue, type SQLOutputValue } from "node:sqlite";
 
-import { SCHEMA_VERSION, type BenchRecord, type Outcome } from "./types.ts";
+import { SCHEMA_VERSION, type UsageRecord, type Outcome } from "./types.ts";
 
 const OUTCOMES = new Set<Outcome>(["ok", "error", "not_run"]);
 
@@ -41,12 +41,12 @@ export interface ReadFilter {
 }
 
 /** Directory that holds one `<session-id>.sqlite` file per Pi session. */
-export function resolveBenchDir(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
-  const override = env.CODEMODE_BENCH_DB?.trim() || env.CODEMODE_BENCH_LOG?.trim();
+export function resolveUsageDir(env: NodeJS.ProcessEnv = process.env, home: string = homedir()): string {
+  const override = env.CODEMODE_USAGE_DB?.trim() || env.CODEMODE_USAGE_LOG?.trim();
   if (override) return expandHome(override, home);
   const configured = env.PI_CODING_AGENT_DIR?.trim();
   const agentDir = configured ? expandHome(configured, home) : join(home, ".pi", "agent");
-  return join(agentDir, "codemode-bench");
+  return join(agentDir, "codemode-usage");
 }
 
 /** `dir/<session-id>.sqlite`. The id is restricted to a single path segment. */
@@ -63,7 +63,7 @@ export function listSessionDbPaths(dir: string): string[] {
 }
 
 /** Every session file in the directory, ordered by record time. */
-export function readBenchRecords(dir: string): BenchRecord[] {
+export function readUsageRecords(dir: string): UsageRecord[] {
   const records = listSessionDbPaths(dir).flatMap((file) => readRecords(file));
   records.sort(
     (left, right) =>
@@ -72,7 +72,7 @@ export function readBenchRecords(dir: string): BenchRecord[] {
   return records;
 }
 
-export function insertRecord(file: string, record: BenchRecord): void {
+export function insertRecord(file: string, record: UsageRecord): void {
   withDb(file, (db) => {
     db.prepare(
       `INSERT INTO runs (
@@ -114,7 +114,7 @@ export function insertRecord(file: string, record: BenchRecord): void {
 }
 
 /** Missing files yield no rows. Rows from an unknown schema are skipped. */
-export function readRecords(file: string, filter?: ReadFilter): BenchRecord[] {
+export function readRecords(file: string, filter?: ReadFilter): UsageRecord[] {
   if (!existsSync(file)) return [];
   return withDb(file, (db) => {
     const rows = db
@@ -129,7 +129,7 @@ export function readRecords(file: string, filter?: ReadFilter): BenchRecord[] {
         ORDER BY recorded_at, rowid`,
       )
       .all({ $session_id: filter?.sessionId ?? null });
-    const records: BenchRecord[] = [];
+    const records: UsageRecord[] = [];
     for (const row of rows) {
       const record = toRecord(row);
       if (record) records.push(record);
@@ -164,7 +164,7 @@ function flagToSql(value: boolean | null): SQLInputValue {
   return value ? 1 : 0;
 }
 
-function toRecord(row: Record<string, SQLOutputValue>): BenchRecord | null {
+function toRecord(row: Record<string, SQLOutputValue>): UsageRecord | null {
   const schema = numberOrNull(row.schema);
   const toolCallId = text(row.tool_call_id);
   const outcome = text(row.outcome);

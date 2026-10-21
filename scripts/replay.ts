@@ -8,7 +8,7 @@ import { CodemodeRecorder } from "../src/measure.ts";
 import { summarize } from "../src/summary.ts";
 import type { SessionMeta } from "../src/types.ts";
 
-const dbPath = join(mkdtempSync(join(tmpdir(), "codemode-bench-")), "runs.sqlite");
+const dbPath = join(mkdtempSync(join(tmpdir(), "codemode-usage-")), "runs.sqlite");
 let now = 0;
 const recorder = new CodemodeRecorder({
   clock: {

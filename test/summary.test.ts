@@ -3,9 +3,9 @@ import { describe, it } from "node:test";
 
 import { formatDuration, formatSummary } from "../src/format.ts";
 import { durationStats, summarize } from "../src/summary.ts";
-import type { BenchRecord } from "../src/types.ts";
+import type { UsageRecord } from "../src/types.ts";
 
-function record(overrides: Partial<BenchRecord> & Pick<BenchRecord, "toolCallId" | "outcome">): BenchRecord {
+function record(overrides: Partial<UsageRecord> & Pick<UsageRecord, "toolCallId" | "outcome">): UsageRecord {
   return {
     schema: 1,
     recordedAt: "2026-10-21T17:00:00.000Z",
@@ -77,7 +77,7 @@ describe("format", () => {
   });
 
   it("renders an empty summary with the log path", () => {
-    const lines = formatSummary(summarize([]), { title: "코드 모드 벤치 · 이 세션", dbPath: "/tmp/runs.sqlite" });
+    const lines = formatSummary(summarize([]), { title: "코드 모드 사용 기록 · 이 세션", dbPath: "/tmp/runs.sqlite" });
     assert.match(lines[0] ?? "", /이 세션/);
     assert.match(lines[1] ?? "", /0회/);
     assert.equal(lines.at(-1), "DB /tmp/runs.sqlite");
