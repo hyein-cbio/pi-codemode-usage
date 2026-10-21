@@ -1,12 +1,33 @@
 {
   "name": "pi-codemode-bench",
   "version": "0.1.0",
-  "private": true,
   "description": "Pi 코드 모드 툴이 스크립트를 쓰는 시간과 그 스크립트가 실행되는 시간을 기록합니다.",
   "type": "module",
   "license": "MIT",
+  "author": "Hyein Cho",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyein-cbio/pi-codemode-bench.git"
+  },
+  "homepage": "https://github.com/hyein-cbio/pi-codemode-bench#readme",
+  "bugs": {
+    "url": "https://github.com/hyein-cbio/pi-codemode-bench/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "keywords": [
-    "pi-package"
+    "pi-package",
+    "pi-extension",
+    "codemode",
+    "benchmark"
+  ],
+  "files": [
+    "extensions",
+    "src",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22.19.0"

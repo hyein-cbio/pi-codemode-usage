@@ -4,6 +4,24 @@ Pi 코딩 에이전트의 `codemode` 툴이 돌 때마다, 모델이 스크립�
 
 확장 팩 하나로 로컬에서 바로 켜집니다. Pi가 TypeScript를 직접 로드하므로 빌드 단계는 없습니다.
 
+## 설치
+
+GitHub에서 설치합니다.
+
+```bash
+pi install git:github.com/hyein-cbio/pi-codemode-bench
+```
+
+이 버전을 고정하려면 `pi install git:github.com/hyein-cbio/pi-codemode-bench@v0.1.0`입니다. 이미 켜진 세션이면 `/reload` 합니다.
+
+`codemode`는 이 패키지가 켜 주지 않습니다. 사용자 설정 `~/.pi/agent/settings.json`에 다음이 있어야 기록이 쌓입니다.
+
+```json
+{
+  "defaultTools": ["+codemode"]
+}
+```
+
 ## 무엇을 재나
 
 한 번의 `codemode` 호출은 두 구간입니다.
@@ -46,7 +64,7 @@ npm run dev
 
 `npm run dev`는 `pi --tools +codemode`입니다. `pi`는 개발 의존성으로 설치됩니다. 프로젝트를 신뢰하면 `.pi/settings.json`의 패키지가 확장으로 로드됩니다.
 
-## Pi에 넣기
+## 이 저장소에서 개발
 
 프로젝트 설정은 이미 이 패키지와 코드 모드를 가리킵니다.
 
