@@ -21,7 +21,8 @@ export interface UsageExtensionOptions {
 }
 
 /**
- * Record every top-level `codemode` or `codemode_o` call.
+ * Record every top-level `codemode` or `codemode_o` call in persisted sessions.
+ * Sessions without a session-file path are ephemeral: skip recording and commands.
  *
  * Write time is the monotonic gap from `toolcall_start` to `toolcall_end`
  * for that tool call: how long the model spent streaming the script.
@@ -57,26 +58,32 @@ export function createCodemodeUsageExtension(options: UsageExtensionOptions = {}
     pi.on("session_start", (_event, ctx) => {
       recorder.reset();
       logErrorNotified = false;
+      if (!ctx.sessionManager.getSessionFile()) return;
       safeWidget(ctx, undefined);
     });
 
     pi.on("session_shutdown", (_event, ctx) => {
+      if (!ctx.sessionManager.getSessionFile()) return;
       commit(recorder.flush(sessionMeta(ctx)), ctx);
     });
 
-    pi.on("turn_start", (event) => {
+    pi.on("turn_start", (event, ctx) => {
+      if (!ctx.sessionManager.getSessionFile()) return;
       recorder.setTurn(event.turnIndex);
     });
 
-    pi.on("message_update", (event) => {
+    pi.on("message_update", (event, ctx) => {
+      if (!ctx.sessionManager.getSessionFile()) return;
       recorder.onAssistant(event.assistantMessageEvent, event.message);
     });
 
-    pi.on("message_end", () => {
+    pi.on("message_end", (_event, ctx) => {
+      if (!ctx.sessionManager.getSessionFile()) return;
       recorder.onMessageEnd();
     });
 
     pi.on("tool_execution_end", (event, ctx) => {
+      if (!ctx.sessionManager.getSessionFile()) return;
       const execution: ExecutionEnd = {
         toolCallId: event.toolCallId,
         toolName: event.toolName,
@@ -90,12 +97,14 @@ export function createCodemodeUsageExtension(options: UsageExtensionOptions = {}
     });
 
     pi.on("agent_end", (_event, ctx) => {
+      if (!ctx.sessionManager.getSessionFile()) return;
       commit(recorder.flush(sessionMeta(ctx)), ctx);
     });
 
     pi.registerCommand("codemode-usage", {
       description: "코드 모드 작성·실행 시간 요약",
       handler: async (args, ctx) => {
+        if (!ctx.sessionManager.getSessionFile()) return;
         const command = args.trim();
         if (command === "hide") {
           safeWidget(ctx, undefined);

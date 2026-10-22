@@ -102,7 +102,9 @@ pi -e ./extensions/codemode-usage.ts --tools +codemode --no-approve
 
 ## 저장
 
-기록은 세션마다 SQLite 파일 하나입니다. Node 내장 `node:sqlite`를 쓰므로 네이티브 모듈을 따로 설치하지 않습니다. Node 22에서는 이 모듈이 실험 기능이라, Pi를 띄울 때 `ExperimentalWarning`이 한 번 나올 수 있습니다.
+기록은 세션마다 SQLite 파일 하나입니다. 세션 파일 경로가 없는 ephemeral 세션(`--no-session` 등)에서는 기록과 `/codemode-usage` 명령이 동작하지 않으며, DB 파일이나 디렉터리도 만들지 않습니다. 기존에 만들어진 DB는 그대로 둡니다.
+
+Node 내장 `node:sqlite`를 쓰므로 네이티브 모듈을 따로 설치하지 않습니다. Node 22에서는 이 모듈이 실험 기능이라, Pi를 띄울 때 `ExperimentalWarning`이 한 번 나올 수 있습니다.
 
 ```text
 ~/.pi/agent/codemode-usage/<session-id>.sqlite

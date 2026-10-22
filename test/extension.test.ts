@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -15,15 +15,19 @@ interface Harness {
   run: (args: string) => Promise<void>;
   status: () => string | undefined;
   widget: () => string[] | undefined;
+  widgetUpdates: (string[] | undefined)[];
+  setSessionFile: (file: string | undefined) => void;
   notifications: string[];
   entries: unknown[];
 }
 
-function harness(dbDir: string, clock: Clock): Harness {
+function harness(dbDir: string, clock: Clock, options: { ephemeral?: boolean } = {}): Harness {
   const handlers = new Map<string, ((event: unknown, ctx: FakeCtx) => unknown)[]>();
   let command: ((args: string, ctx: FakeCtx) => Promise<void>) | undefined;
   let status: string | undefined;
   let widget: string[] | undefined;
+  let sessionFile = options.ephemeral ? undefined : "/tmp/sess-1.jsonl";
+  const widgetUpdates: (string[] | undefined)[] = [];
   const notifications: string[] = [];
   const entries: unknown[] = [];
   const ctx = {
@@ -39,11 +43,12 @@ function harness(dbDir: string, clock: Clock): Harness {
       },
       setWidget(_key: string, content: string[] | undefined) {
         widget = content;
+        widgetUpdates.push(content);
       },
     },
     sessionManager: {
       getSessionId: () => "sess-1",
-      getSessionFile: () => "/tmp/sess-1.jsonl",
+      getSessionFile: () => sessionFile,
     },
   };
 
@@ -69,6 +74,10 @@ function harness(dbDir: string, clock: Clock): Harness {
     entries,
     status: () => status,
     widget: () => widget,
+    widgetUpdates,
+    setSessionFile: (file) => {
+      sessionFile = file;
+    },
     async emit(event, payload) {
       for (const handler of handlers.get(event) ?? []) await handler(payload, ctx);
     },
@@ -90,7 +99,7 @@ interface FakeCtx {
   };
   sessionManager: {
     getSessionId: () => string;
-    getSessionFile: () => string;
+    getSessionFile: () => string | undefined;
   };
 }
 
@@ -104,7 +113,101 @@ function manualClock(): { clock: Clock; set: (ms: number) => void } {
   };
 }
 
+async function streamCall(bench: Harness, id: string, toolName = "codemode"): Promise<void> {
+  const message = { role: "assistant", provider: "anthropic", model: "claude-sonnet" };
+  await bench.emit("message_update", {
+    type: "message_update",
+    message,
+    assistantMessageEvent: { type: "toolcall_start", contentIndex: 0, toolName },
+  });
+  await bench.emit("message_update", {
+    type: "message_update",
+    message,
+    assistantMessageEvent: {
+      type: "toolcall_end",
+      contentIndex: 0,
+      toolCall: { id, name: toolName, arguments: { code: "return 1" } },
+    },
+  });
+}
+
 describe("codemode usage extension", () => {
+  it("does not measure, persist, or update UI in ephemeral sessions", async () => {
+    const unexpectedClock = () => {
+      throw new Error("ephemeral calls must not be measured");
+    };
+    const dbDir = join(mkdtempSync(join(tmpdir(), "codemode-usage-")), "usage");
+    const bench = harness(dbDir, { mono: unexpectedClock, wall: unexpectedClock }, { ephemeral: true });
+
+    await bench.emit("session_start", {});
+    await bench.emit("turn_start", { turnIndex: 0 });
+    for (const toolName of ["codemode", "codemode_o"]) {
+      await streamCall(bench, toolName, toolName);
+      await bench.emit("message_end", {});
+      await bench.emit("tool_execution_end", {
+        toolCallId: toolName,
+        toolName,
+        isError: false,
+        durationMs: 80,
+      });
+    }
+    await streamCall(bench, "unrun");
+    await bench.emit("agent_end", {});
+    await bench.emit("session_shutdown", {});
+
+    assert.equal(existsSync(dbDir), false);
+    assert.deepEqual(bench.entries, []);
+    assert.deepEqual(bench.notifications, []);
+    assert.deepEqual(bench.widgetUpdates, []);
+    assert.equal(bench.status(), undefined);
+  });
+
+  it("ignores usage commands without accessing existing databases in ephemeral sessions", async () => {
+    const dbDir = mkdtempSync(join(tmpdir(), "codemode-usage-"));
+    const dbPath = sessionDbPath(dbDir, "sess-1");
+    // Any attempt to read this as SQLite would fail, including the "all" command.
+    writeFileSync(dbPath, "must not be opened as SQLite");
+    const bench = harness(dbDir, manualClock().clock, { ephemeral: true });
+    for (const args of ["", "session", "all", "path", "hide", "nope"]) await bench.run(args);
+
+    assert.deepEqual(readdirSync(dbDir), ["sess-1.sqlite"]);
+    assert.equal(readFileSync(dbPath, "utf8"), "must not be opened as SQLite");
+    assert.deepEqual(bench.entries, []);
+    assert.deepEqual(bench.notifications, []);
+    assert.deepEqual(bench.widgetUpdates, []);
+  });
+
+  it("resets pending calls when switching through an ephemeral session", async () => {
+    const dbDir = join(mkdtempSync(join(tmpdir(), "codemode-usage-")), "usage");
+    const bench = harness(dbDir, manualClock().clock);
+    await bench.emit("session_start", {});
+    await streamCall(bench, "old-call");
+
+    bench.setSessionFile(undefined);
+    await bench.emit("session_start", {});
+    await streamCall(bench, "ephemeral-call");
+    await bench.emit("agent_end", {});
+    await bench.emit("session_shutdown", {});
+
+    bench.setSessionFile("/tmp/sess-1.jsonl");
+    await bench.emit("session_start", {});
+    await bench.emit("agent_end", {});
+    assert.equal(existsSync(dbDir), false);
+    assert.deepEqual(bench.entries, []);
+
+    await streamCall(bench, "new-call");
+    await bench.emit("tool_execution_end", {
+      toolCallId: "new-call",
+      toolName: "codemode",
+      isError: false,
+      durationMs: 80,
+    });
+    const records = readRecords(sessionDbPath(dbDir, "sess-1"));
+    assert.equal(records.length, 1);
+    assert.equal(records[0]?.toolCallId, "new-call");
+    assert.equal(records[0]?.sessionFile, "/tmp/sess-1.jsonl");
+  });
+
   it("writes a log line when codemode streams and then runs", async () => {
     const time = manualClock();
     const dbDir = mkdtempSync(join(tmpdir(), "codemode-usage-"));
