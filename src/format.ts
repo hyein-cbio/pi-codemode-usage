@@ -29,7 +29,7 @@ export function formatSummary(summary: Summary, options: { title: string; dbPath
       const name = [model.provider, model.model].filter((part) => part && part.length > 0).join("/") || "모델 없음";
       const write = model.writeP50 === null ? "쓰기 —" : `쓰기 p50 ${formatDuration(model.writeP50)}`;
       const execute = model.executeP50 === null ? "실행 —" : `실행 p50 ${formatDuration(model.executeP50)}`;
-      lines.push(`${name}  n=${model.n}  ${write}  ${execute}`);
+      lines.push(`${name} · ${model.toolName || "툴 없음"}  n=${model.n}  ${write}  ${execute}`);
     }
   }
   lines.push(`DB ${options.dbPath}`);

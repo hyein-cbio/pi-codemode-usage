@@ -67,6 +67,38 @@ describe("summary", () => {
     assert.equal(summary.models[0]?.n, 2);
     assert.equal(summary.models[1]?.model, "gpt");
   });
+
+  it("keeps codemode and codemode_o apart for the same model", () => {
+    const summary = summarize([
+      record({ toolCallId: "a", outcome: "ok", writeMs: 100, executeMs: 10 }),
+      record({ toolCallId: "b", outcome: "ok", writeMs: 300, executeMs: 30 }),
+      record({ toolCallId: "c", outcome: "ok", toolName: "codemode_o", writeMs: 5000, executeMs: 900 }),
+    ]);
+    assert.equal(summary.models.length, 2);
+    const codemode = summary.models.find((model) => model.toolName === "codemode");
+    const codemodeO = summary.models.find((model) => model.toolName === "codemode_o");
+    assert.ok(codemode);
+    assert.ok(codemodeO);
+    assert.equal(codemode.n, 2);
+    assert.equal(codemode.writeP50, 200);
+    assert.equal(codemode.executeP50, 20);
+    assert.equal(codemodeO.n, 1);
+    assert.equal(codemodeO.writeP50, 5000);
+    assert.equal(codemodeO.executeP50, 900);
+    assert.equal(summary.models[0]?.toolName, "codemode");
+  });
+
+  it("shows the tool name in each model row", () => {
+    const summary = summarize([
+      record({ toolCallId: "a", outcome: "ok", toolName: "codemode" }),
+      record({ toolCallId: "b", outcome: "ok", toolName: "codemode_o" }),
+      record({ toolCallId: "c", outcome: "ok", toolName: null }),
+    ]);
+    const lines = formatSummary(summary, { title: "요약", dbPath: "/tmp/runs.sqlite" });
+    for (const toolName of ["codemode", "codemode_o", "툴 없음"]) {
+      assert.ok(lines.some((line) => line.startsWith(`anthropic/claude-sonnet · ${toolName}  n=1`)));
+    }
+  });
 });
 
 describe("format", () => {

@@ -98,7 +98,7 @@ pi -e ./extensions/codemode-usage.ts --tools +codemode --no-approve
 | `/codemode-usage path` | 이 세션 파일 경로 |
 | `/codemode-usage hide` | 요약 위젯 닫기 |
 
-요약은 횟수, 성공/실패/미실행, 쓰기·실행의 p50·p95·평균입니다. 모델이 둘 이상이면 모델별 p50도 보여 줍니다.
+요약은 횟수, 성공/실패/미실행, 쓰기·실행의 p50·p95·평균입니다. 모델·툴 조합이 둘 이상이면 조합별 p50도 보여 줍니다. 줄은 `provider/model · 툴` 형식입니다.
 
 ## 저장
 
@@ -132,12 +132,12 @@ pi -e ./extensions/codemode-usage.ts --tools +codemode --no-approve
 | `nested_call_count`, `nested_execute_ms` | 스크립트 안의 툴 호출 수와 실행 시간 합 |
 
 ```sql
-SELECT provider, model,
+SELECT provider, model, tool_name,
        COUNT(*) AS n,
        AVG(write_ms) AS write_ms,
        AVG(execute_ms) AS execute_ms
 FROM runs
-GROUP BY provider, model;
+GROUP BY provider, model, tool_name;
 ```
 
 ```bash

@@ -12,6 +12,7 @@ export interface DurationStats {
 export interface ModelRollup {
   provider: string | null;
   model: string | null;
+  toolName: string | null;
   n: number;
   writeP50: number | null;
   executeP50: number | null;
@@ -58,7 +59,7 @@ export function durationStats(values: readonly number[]): DurationStats | null {
 export function summarize(records: readonly UsageRecord[]): Summary {
   const groups = new Map<string, UsageRecord[]>();
   for (const record of records) {
-    const key = `${record.provider ?? ""}\n${record.model ?? ""}`;
+    const key = `${record.provider ?? ""}\n${record.model ?? ""}\n${record.toolName ?? ""}`;
     const group = groups.get(key);
     if (group) group.push(record);
     else groups.set(key, [record]);
@@ -70,12 +71,17 @@ export function summarize(records: readonly UsageRecord[]): Summary {
       return {
         provider: first?.provider ?? null,
         model: first?.model ?? null,
+        toolName: first?.toolName ?? null,
         n: group.length,
         writeP50: durationStats(numbers(group, "writeMs"))?.p50 ?? null,
         executeP50: durationStats(numbers(group, "executeMs"))?.p50 ?? null,
       };
     })
-    .sort((a, b) => b.n - a.n || `${a.provider}/${a.model}`.localeCompare(`${b.provider}/${b.model}`));
+    .sort((a, b) =>
+      b.n - a.n ||
+      `${a.provider}/${a.model}`.localeCompare(`${b.provider}/${b.model}`) ||
+      (a.toolName ?? "").localeCompare(b.toolName ?? ""),
+    );
 
   return {
     n: records.length,
