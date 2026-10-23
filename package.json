@@ -1,7 +1,7 @@
 {
   "name": "pi-codemode-usage",
   "version": "0.1.0",
-  "description": "Pi 코드 모드 툴이 스크립트를 쓰는 시간과 그 스크립트가 실행되는 시간을 기록합니다.",
+  "description": "Record codemode script write and execution times in per-session SQLite files for Pi.",
   "type": "module",
   "license": "MIT",
   "author": "Hyein Cho",
@@ -27,6 +27,10 @@
     "extensions",
     "src",
     "README.md",
+    "README.ko.md",
+    "docs",
+    "CHANGELOG.md",
+    "SECURITY.md",
     "LICENSE"
   ],
   "engines": {
