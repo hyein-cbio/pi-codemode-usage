@@ -29,7 +29,7 @@ export interface UsageRecord {
   toolName: string | null;
   /** Monotonic milliseconds from `toolcall_start` to `toolcall_end`. */
   writeMs: number | null;
-  /** Pi's `durationMs` for `execute()`. Null when the tool did not run. */
+  /** Pi's `durationMs` for `execute()`, including worker wait. Null if not reported. */
   executeMs: number | null;
   outcome: Outcome;
   codeChars: number | null;

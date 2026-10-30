@@ -13,11 +13,19 @@ npm run replay
 npm pack --dry-run --ignore-scripts
 ```
 
-- `npm run check`: TypeScript checks against Pi 1.3.0 plus all tests.
+- `npm run check`: TypeScript checks against the locked Pi 1.4.0 plus all tests, including the model-free SDK/worker integration test in `test/runtime.test.ts`.
 - `npm run replay`: record two synthetic calls without a model, verify the metadata does not contain script source, and print a summary. It creates a temporary SQLite database and prints its path.
 - CI repeats these checks on Node 22.19.0, 22, 24, and 26.
 
 Runtime imports use Node's standard library only. Pi is a development dependency for types and the local CLI, and a `*` peer dependency because the host provides it at runtime. Do not bundle a second Pi installation.
+
+To run only the worker compatibility regression:
+
+```bash
+node --disable-warning=ExperimentalWarning --experimental-strip-types --test test/runtime.test.ts
+```
+
+It supplies scripted assistant output but runs real QuickJS workers, worker admission, nested-tool event dispatch, and per-session SQLite writes. See [Pi 1.4 compatibility](pi-1.4-compatibility.md).
 
 ## Run Pi locally
 
