@@ -9,7 +9,7 @@ Record how long Pi spends **writing** a `codemode` or `codemode_o` script and **
 ## Requirements
 
 - Node.js **22.19.0 or newer**.
-- [Pi](https://pi.dev) **1.3.0 or newer**. Development type checks use Pi 1.3.0; older Pi versions are not supported.
+- [Pi](https://pi.dev) **1.3.0 or newer**. Development type checks and runtime regression tests use the locked Pi 1.4.0; Pi versions before 1.3.0 are not supported.
 - Enable `codemode` separately. This package only records calls; it does not provide or enable either tool.
 
 Node 22 may print an `ExperimentalWarning` for its built-in `node:sqlite` module.
@@ -48,10 +48,12 @@ The summary includes counts, outcomes, and p50/p95/mean write and execution time
 | Field | Measurement |
 | --- | --- |
 | `writeMs` | Monotonic time from `toolcall_start` to `toolcall_end`: streaming the script arguments, not preceding thinking time |
-| `executeMs` | Pi's `execute()` `durationMs`, including nested tool calls |
-| `outcome` | `ok`, `error`, or `not_run`; execution time is null if execution did not run |
+| `executeMs` | Pi's `execute()` `durationMs`, including worker-queue wait (Pi 1.4.0) and nested tool calls |
+| `outcome` | `ok`, `error`, or `not_run`; execution time is null when no duration was reported |
 
-Nested calls are already included in the outer execution time; their count and summed duration are recorded separately.
+Nested calls are already included in the outer execution time; their count and summed duration are recorded separately and never added to `executeMs`. Nested durations can overlap, so their sum is not elapsed wall time. Parallel top-level calls also have overlapping execution windows.
+
+In Pi 1.4.0, scripts wait for a free worker inside `execute()`. That wait increases `executeMs`, but not `writeMs`; this is end-to-end tool latency, not just time running JavaScript. A timeout or abort while queued records `outcome: "error"` with a duration even though the script body never started. `not_run` means Pi did not report an execution duration. See the [runtime compatibility check](docs/pi-1.4-compatibility.md).
 
 ## Storage and privacy
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Validate the locked Pi 1.4.0 development dependency with real parallel codemode workers, cross-session worker waiting, queue timeout, nested calls, and per-session SQLite persistence.
+- Document that worker wait is included in execution duration, and queued failures are errors even when the script body never starts. No recorder or schema change is needed.
+
 ## 0.1.0
 
 Initial public release of **pi-codemode-usage**.

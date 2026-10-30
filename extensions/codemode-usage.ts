@@ -27,7 +27,7 @@ export interface UsageExtensionOptions {
  * Write time is the monotonic gap from `toolcall_start` to `toolcall_end`
  * for that tool call: how long the model spent streaming the script.
  * Execute time is Pi's `durationMs` on `tool_execution_end`: how long
- * `execute()` ran, including nested tool calls inside the script.
+ * `execute()` ran, including worker admission wait (Pi 1.4.0) and nested calls.
  */
 export function createCodemodeUsageExtension(options: UsageExtensionOptions = {}) {
   const dbDir = options.dbDir ?? resolveUsageDir();
