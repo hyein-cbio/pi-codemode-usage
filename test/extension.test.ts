@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -8,6 +8,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 import { createCodemodeUsageExtension } from "../extensions/codemode-usage.ts";
 import { readRecords, sessionDbPath } from "../src/db.ts";
+import { summarize } from "../src/summary.ts";
 import type { Clock } from "../src/types.ts";
 
 interface Harness {
@@ -17,22 +18,24 @@ interface Harness {
   widget: () => string[] | undefined;
   widgetUpdates: (string[] | undefined)[];
   setSessionFile: (file: string | undefined) => void;
+  setSessionId: (id: string) => void;
   notifications: string[];
   entries: unknown[];
 }
 
-function harness(dbDir: string, clock: Clock, options: { ephemeral?: boolean } = {}): Harness {
+function harness(dbDir: string, clock: Clock, options: { ephemeral?: boolean; hasUI?: boolean } = {}): Harness {
   const handlers = new Map<string, ((event: unknown, ctx: FakeCtx) => unknown)[]>();
   let command: ((args: string, ctx: FakeCtx) => Promise<void>) | undefined;
   let status: string | undefined;
   let widget: string[] | undefined;
   let sessionFile = options.ephemeral ? undefined : "/tmp/sess-1.jsonl";
+  let sessionId = "sess-1";
   const widgetUpdates: (string[] | undefined)[] = [];
   const notifications: string[] = [];
   const entries: unknown[] = [];
   const ctx = {
     cwd: "/workspace",
-    hasUI: true,
+    hasUI: options.hasUI ?? true,
     thinkingLevel: "high" as const,
     ui: {
       notify(message: string) {
@@ -47,7 +50,7 @@ function harness(dbDir: string, clock: Clock, options: { ephemeral?: boolean } =
       },
     },
     sessionManager: {
-      getSessionId: () => "sess-1",
+      getSessionId: () => sessionId,
       getSessionFile: () => sessionFile,
     },
   };
@@ -77,6 +80,9 @@ function harness(dbDir: string, clock: Clock, options: { ephemeral?: boolean } =
     widgetUpdates,
     setSessionFile: (file) => {
       sessionFile = file;
+    },
+    setSessionId: (id) => {
+      sessionId = id;
     },
     async emit(event, payload) {
       for (const handler of handlers.get(event) ?? []) await handler(payload, ctx);
@@ -273,6 +279,107 @@ describe("codemode usage extension", () => {
     assert.equal(bench.notifications.at(-1), dbPath);
     await bench.run("nope");
     assert.match(bench.notifications.at(-1) ?? "", /사용법/);
+  });
+
+  for (const toolName of ["codemode", "codemode_o"]) {
+    it(`persists ${toolName} outcomes once, with metadata but no source or result text`, async (t) => {
+      const root = mkdtempSync(join(tmpdir(), "codemode-parity-"));
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const time = manualClock();
+      const bench = harness(root, time.clock);
+      await bench.emit("session_start", {});
+      await bench.emit("turn_start", { turnIndex: 2 });
+      for (const id of ["ok", "error", "unrun"]) {
+        await streamCall(bench, id, toolName);
+        if (id === "unrun") continue;
+        const event = {
+          toolCallId: id, toolName, isError: id === "error", durationMs: 80,
+          result: {
+            content: [{ type: "text", text: "private result" }],
+            details: { calls: [{ durationMs: 70 }, { durationMs: 60 }] },
+          },
+        };
+        // A nested call with a tracked name must not become an independent row.
+        await bench.emit("tool_execution_end", { ...event, toolCallId: `${id}-child`, parentToolCallId: id });
+        await bench.emit("tool_execution_end", event);
+        await bench.emit("tool_execution_end", event);
+      }
+      await bench.emit("agent_end", {});
+      await bench.emit("session_shutdown", {});
+      const rows = readRecords(sessionDbPath(root, "sess-1"));
+      assert.deepEqual(rows.map((row) => [row.toolCallId, row.outcome, row.executeMs]), [
+        ["ok", "ok", 80], ["error", "error", 80], ["unrun", "not_run", null],
+      ]);
+      assert.deepEqual(bench.entries, rows);
+      for (const row of rows) {
+        assert.equal(row.toolName, toolName);
+        assert.equal(row.writeMs, 0);
+        assert.equal(row.turnIndex, 2);
+        assert.equal(row.sessionId, "sess-1");
+        assert.equal(row.sessionFile, "/tmp/sess-1.jsonl");
+        assert.equal(row.codeChars, 8);
+        assert.equal(row.hasOptionsLine, false);
+        assert.match(row.codeSha256 ?? "", /^[a-f0-9]{16}$/);
+        assert.equal(row.nestedCallCount, row.outcome === "not_run" ? null : 2);
+        assert.equal(row.nestedExecuteMs, row.outcome === "not_run" ? null : 130);
+      }
+      const serialized = JSON.stringify([rows, bench.entries]);
+      assert.equal(serialized.includes("return 1"), false);
+      assert.equal(serialized.includes("private result"), false);
+      const summary = summarize(rows);
+      assert.deepEqual([summary.n, summary.ok, summary.error, summary.notRun], [3, 1, 1, 1]);
+      assert.equal(summary.execute?.mean, 80, "overlapping nested time is not added to outer duration");
+      assert.deepEqual(summary.models.map((model) => [model.toolName, model.n]), [[toolName, 3]]);
+    });
+  }
+
+  for (const hasUI of [true, false]) {
+    it(`keeps session and all-session command scopes separate (hasUI=${hasUI})`, async (t) => {
+      const root = mkdtempSync(join(tmpdir(), "codemode-command-"));
+      t.after(() => rmSync(root, { recursive: true, force: true }));
+      const bench = harness(root, manualClock().clock, { hasUI });
+      for (const [id, toolName] of [["sess-1", "codemode"], ["sess-2", "codemode_o"]] as const) {
+        bench.setSessionId(id);
+        bench.setSessionFile(`/tmp/${id}.jsonl`);
+        await bench.emit("session_start", {});
+        await streamCall(bench, `call-${id}`, toolName);
+        await bench.emit("tool_execution_end", { toolCallId: `call-${id}`, toolName, durationMs: 50, isError: false });
+      }
+      await bench.run("session");
+      assert.match(bench.notifications.at(-1) ?? "", /1회/);
+      await bench.run("all");
+      assert.match(bench.notifications.at(-1) ?? "", /2회/);
+      if (hasUI) {
+        assert.ok(bench.widget()?.some((line) => line.includes("codemode_o")));
+      } else {
+        assert.deepEqual(bench.widgetUpdates, []);
+        assert.match(bench.notifications.at(-1) ?? "", /codemode_o/);
+      }
+      assert.equal(bench.entries.length, 2);
+      assert.equal(readRecords(sessionDbPath(root, "sess-1")).length, 1);
+      assert.equal(readRecords(sessionDbPath(root, "sess-2")).length, 1);
+    });
+  }
+
+  it("notifies once on SQLite write failures and resumes recording after storage recovers", async (t) => {
+    const root = mkdtempSync(join(tmpdir(), "codemode-storage-"));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const dbDir = join(root, "blocked");
+    writeFileSync(dbDir, "not a directory");
+    const bench = harness(dbDir, manualClock().clock);
+    for (const id of ["failed-a", "failed-b"]) {
+      await streamCall(bench, id);
+      await bench.emit("tool_execution_end", { toolCallId: id, toolName: "codemode", durationMs: 10, isError: false });
+    }
+    assert.equal(bench.notifications.length, 1);
+    assert.match(bench.notifications[0] ?? "", /기록을 남기지 못했습니다/);
+    assert.deepEqual(bench.entries, []);
+    rmSync(dbDir);
+    await streamCall(bench, "recovered", "codemode_o");
+    await bench.emit("tool_execution_end", { toolCallId: "recovered", toolName: "codemode_o", durationMs: 20, isError: false });
+    assert.deepEqual(readRecords(sessionDbPath(dbDir, "sess-1")).map((row) => row.toolCallId), ["recovered"]);
+    assert.equal(bench.entries.length, 1);
+    assert.equal(bench.notifications.length, 1);
   });
 
   it("does not record other tools, and keeps an unrun script at agent end", async () => {

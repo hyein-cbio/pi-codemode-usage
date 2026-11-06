@@ -15,8 +15,9 @@ npm pack --dry-run --ignore-scripts
 
 - `npm run check`: TypeScript checks against the locked Pi 1.5.0 plus all tests, including the model-free SDK/worker integration test in `test/runtime.test.ts`.
 - `npm run replay`: record two synthetic calls without a model, verify the metadata does not contain script source, and print a summary. It creates a temporary SQLite database and prints its path.
-- CI repeats these checks on Node 22.19.0, 22, 24, and 26.
-- Keep `@types/node` on major 22 while Node 22 is supported. The runtime matrix uses the same declarations on every job; newer runtimes do not require newer type definitions. The exact 22.19.0 job remains necessary because even major-22 declarations can include later additions.
+- CI repeats these checks on Node 22.19.0 and the latest Node 24/26 patches. Node 22.19.0 represents major 22: a separate latest-22 job is omitted to avoid duplicate coverage, not because later patches are proven equivalent. As of 2026-11-06, the latest stable LTS patches are 22.23.4, 24.22.2, and 26.13.0; Node 27 is only available as an alpha and is not a required target.
+- The lockfile uses Node 26 declarations. The Node 22.19.0 job then installs `@types/node@22.20.5` with `--no-save --ignore-scripts` so unrelated dependencies still follow the existing lockfile. It verifies the installed type version and unchanged locked Pi version, then repeats `npm run check`. This separate declaration check prevents newer API usage from being accepted solely by Node 26 types. The exact-minimum runtime tests remain necessary because even major-22 declarations may include later additions. Run `npm ci` after reproducing that alternate-types check locally to restore the locked declarations.
+- Runtime parity tests cover both tracked tools and all outcomes, duplicate/nested event suppression, SQLite failure recovery, UI/headless command scopes, and exact CLI summary output. CLI subprocesses use `process.execPath` so they run on the same Node version as the parent test.
 
 Runtime imports use Node's standard library only. Pi is a development dependency for types and the local CLI, and a `*` peer dependency because the host provides it at runtime. Do not bundle a second Pi installation.
 

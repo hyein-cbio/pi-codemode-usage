@@ -34,14 +34,20 @@ The test controls assistant output and the recorder's write clock. It exercises 
 
 ## Node.js type definitions
 
-Keep `engines.node >=22.19.0` and `@types/node ^22.20.5`. Hold PR #5's move to `^26.6.6`.
+The initial review recommended keeping `engines.node >=22.19.0` and `@types/node ^22.20.5`, holding PR #5's move to `^26.6.6` until a separate Node 22 declaration check was added. The follow-up below adds that check while retaining the Node 26 declaration update.
 
 [PR #5's CI run 42167202812](https://github.com/hyein-cbio/pi-codemode-usage/actions/runs/42167202812) passed on all four Node versions. No current runtime failure was found. The change affects declarations and their `undici-types` dependency, not the running Node binary. Current database code uses `DatabaseSync`, `exec`, `prepare`, `run`, `all`, and `close`, which the minimum-runtime CI exercises.
 
-The problem is the development contract: all CI jobs use the same lockfile declarations. Running TypeScript on Node 22 does not make Node 26 declarations describe Node 22. A later use of a newer API could typecheck while failing on the minimum runtime if tests miss that path.
+The initial problem was the development contract: all CI jobs used the same lockfile declarations. Running TypeScript on Node 22 does not make Node 26 declarations describe Node 22. A later use of a newer API could typecheck while failing on the minimum runtime if tests miss that path.
 
 For example, the [Node 26 declaration branch](https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/node/sqlite.d.ts) exposes `DatabaseSync.createTagStore()` (introduced in Node 24.9.0) and `setAuthorizer()` (24.10.0). Neither is present in the [Node 22.19.0 SQLite API](https://github.com/nodejs/node/blob/v22.19.0/doc/api/sqlite.md), and neither is used here. These examples describe the declaration/runtime mismatch, not an observed failure in this extension.
 
-Using Node 22 declarations reduces that risk while retaining the runtime matrix through Node 26. Even Node 22 declarations may contain APIs added after 22.19.0, so they do not replace exact-minimum runtime checks. Reconsider the type major when raising the supported runtime floor, or when there is a concrete need and an explicit separate Node 22 typecheck.
+### Follow-up: separate declaration and runtime checks
 
-No recorder behavior, measurement meaning, or database schema changes are needed.
+The lockfile now retains `@types/node ^26.6.6`. Required runtime jobs use Node 22.19.0 and the newest Node 24/26 patches; the duplicate latest-22 job is removed. Node 22.19.0 is a deliberate floor check, not a guarantee about every later patch. Node 27 is currently an alpha and is not a required target.
+
+Each job first checks the locked Node 26 declarations. The minimum-runtime job additionally installs exactly `@types/node@22.20.5` with `--no-save --ignore-scripts` (honoring the existing lockfile for unrelated dependencies), verifies the installed type version and unchanged locked Pi version, and repeats the typecheck and complete test suite. A final tracked-file diff check ensures that neither declaration pass rewrites the manifest or lockfile. Even Node 22 declarations may contain APIs added after 22.19.0, so exact-minimum runtime checks remain required.
+
+The expanded tests pin both-tool success/error/not-run persistence, nested and duplicate suppression, storage failure recovery, session/all-session UI and headless commands, and CLI summary output. CLI subprocesses use the parent runtime's `process.execPath`. The real SDK test now also records a JavaScript exception and a subsequent successful sequential call. Headless session startup exposed an unnecessary widget call, fixed by guarding widget access with `ctx.hasUI`.
+
+No measurement meaning or database schema changes are needed.

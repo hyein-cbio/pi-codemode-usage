@@ -241,6 +241,34 @@ it("records Pi parallel workers, queued execution and nested calls per session",
       assert.equal(summary.execute?.mean, rows.reduce((sum, row) => sum + row.executeMs!, 0) / rows.length);
     }
     assert.equal(ends.size, 10, "four outer events and six nested events");
+
+    // A JavaScript failure must be persisted without poisoning the worker pool or the next call.
+    const recovery = await makeSession([
+      script("script-error", 'throw new Error("test-only script failure");'),
+      script("after-error", 'text("worker still usable");'),
+    ]);
+    recovery.session.agent.toolExecution = "sequential";
+    await recovery.session.prompt("record an execution failure and a successful next call");
+    assert.ok(order.indexOf("end:script-error") < order.indexOf("start:after-error"));
+    assert.match(ends.get("script-error")!.result.content.map((part) => part.text ?? "").join("\n"), /test-only script failure/);
+    assert.match(ends.get("after-error")!.result.content.map((part) => part.text ?? "").join("\n"), /worker still usable/);
+    const recoveryRows = readRecords(recovery.dbPath);
+    assert.deepEqual(recoveryRows.map((row) => [row.toolCallId, row.outcome]).sort(), [
+      ["after-error", "ok"], ["script-error", "error"],
+    ]);
+    for (const row of recoveryRows) {
+      assert.equal(row.executeMs, ends.get(row.toolCallId)?.durationMs);
+      assert.ok(row.executeMs !== null && Number.isFinite(row.executeMs) && row.executeMs >= 0);
+      assert.equal(row.writeMs, 10);
+      assert.equal(row.nestedCallCount, 0);
+      assert.equal(row.nestedExecuteMs, 0);
+      assert.equal(row.sessionId, recovery.sessionManager.getSessionId());
+    }
+    assert.equal(JSON.stringify(recoveryRows).includes("test-only script failure"), false);
+    assert.equal(JSON.stringify(recoveryRows).includes("worker still usable"), false);
+    assert.equal(listSessionDbPaths(dbDir).length, 3);
+    assert.equal(recovery.sessionManager.getEntries().filter((entry) => entry.type === "custom" && entry.customType === ENTRY_TYPE).length, 2);
+    assert.equal(ends.size, 12);
     assert.deepEqual(extensionErrors, []);
     t.diagnostic(JSON.stringify({
       observedWorkerWaitMs: Math.round(observedWait),
