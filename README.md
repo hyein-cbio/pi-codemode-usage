@@ -9,7 +9,7 @@ Record how long Pi spends **writing** a `codemode` or `codemode_o` script and **
 ## Requirements
 
 - Node.js **22.19.0 or newer**.
-- [Pi](https://pi.dev) **1.3.0 or newer**. Development type checks and runtime regression tests use the locked Pi 1.4.0; Pi versions before 1.3.0 are not supported.
+- [Pi](https://pi.dev) **1.3.0 or newer**. Development type checks and runtime regression tests use the locked Pi 1.5.0; Pi versions before 1.3.0 are not supported.
 - Enable `codemode` separately. This package only records calls; it does not provide or enable either tool.
 
 Node 22 may print an `ExperimentalWarning` for its built-in `node:sqlite` module.
@@ -81,7 +81,7 @@ npm run check
 npm run replay
 ```
 
-CI runs type checks, all tests, a model-free SQLite replay, and a packaging dry run on Node 22.19.0, 22, 24, and 26.
+CI runs type checks, all tests, a model-free SQLite replay, and a packaging dry run on Node 22.19.0 and the latest Node 24/26 patches. Node 22 is represented by the exact minimum version. The minimum-runtime job also repeats type checks and tests with Node 22 declarations, separately from the locked Node 26 declarations.
 
 See [development and CLI reports](docs/development.md), [changelog](CHANGELOG.md), and [security reporting](SECURITY.md).
 

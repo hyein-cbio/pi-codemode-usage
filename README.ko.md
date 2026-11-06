@@ -7,7 +7,7 @@ Pi의 `codemode`와 `codemode_o` 호출마다 **스크립트를 쓰는 시간**�
 ## 요구 사항
 
 - Node.js **22.19.0 이상**
-- Pi **1.3.0 이상**. 개발 타입 검사와 런타임 회귀 테스트는 잠금 파일의 Pi 1.4.0 기준이며, Pi 1.3.0 이전 버전은 지원하지 않습니다.
+- Pi **1.3.0 이상**. 개발 타입 검사와 런타임 회귀 테스트는 잠금 파일의 Pi 1.5.0 기준이며, Pi 1.3.0 이전 버전은 지원하지 않습니다.
 - `codemode`는 별도로 켜야 합니다. 이 패키지는 툴을 제공하거나 활성화하지 않고, 호출만 기록합니다.
 
 Node 22에서는 내장 `node:sqlite` 때문에 `ExperimentalWarning`이 나올 수 있습니다.
@@ -74,6 +74,6 @@ npm run check
 npm run replay
 ```
 
-CI는 Node 22.19.0·22·24·26에서 타입 검사, 전체 테스트, 모델 없는 SQLite 리플레이, 패키징 dry run을 실행합니다.
+CI는 Node 22.19.0과 Node 24·26의 최신 patch에서 타입 검사, 전체 테스트, 모델 없는 SQLite 리플레이, 패키징 dry run을 실행합니다. Node 22는 최소 지원 버전인 22.19.0으로 대표합니다. 최소 버전 작업에서는 잠금 파일의 Node 26 타입 선언과 별도로 Node 22 선언을 적용해 타입 검사와 테스트를 다시 실행합니다.
 
 [개발과 CLI 리포트](docs/development.md) · [변경 이력](CHANGELOG.md) · [보안 제보](SECURITY.md) · [MIT 라이선스](LICENSE)

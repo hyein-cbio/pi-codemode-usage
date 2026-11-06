@@ -22,7 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["22.19.0", "22", "24", "26"]
+        # Exact minimum for Node 22; 24/26 resolve to the newest patch of each supported LTS.
+        node: ["22.19.0", "24", "26"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,6 +36,23 @@ jobs:
       - run: npm run check
       - run: npm run replay
       - run: npm pack --dry-run --ignore-scripts
+      - name: Verify Node 22 declarations as well as the locked Node 26 declarations
+        if: matrix.node == '22.19.0'
+        run: |
+          npm install --no-save --ignore-scripts @types/node@22.20.5
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { createRequire } from 'node:module';
+          const require = createRequire(import.meta.url);
+          const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
+          assert.equal(require('@types/node/package.json').version, '22.20.5');
+          const pi = JSON.parse(readFileSync('node_modules/@earendil-works/pi-coding-agent/package.json', 'utf8'));
+          assert.equal(pi.version, lock.packages['node_modules/@earendil-works/pi-coding-agent'].version);
+          JS
+          npm run check
+      - name: Ensure checks did not change tracked files
+        run: git diff --exit-code
 
   checks:
     name: checks

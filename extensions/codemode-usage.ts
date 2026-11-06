@@ -158,6 +158,7 @@ function safeNotify(ctx: ExtensionContext, message: string, type: "info" | "warn
 }
 
 function safeWidget(ctx: ExtensionCommandContext | ExtensionContext, lines: string[] | undefined): void {
+  if (!ctx.hasUI) return;
   try {
     ctx.ui.setWidget(WIDGET_KEY, lines);
   } catch {
