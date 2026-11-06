@@ -36,7 +36,7 @@ type EndEvent = {
 
 // Model output and the recorder's write clock are controlled. Pi's SDK, event dispatch, nested-tool pipeline,
 // QuickJS workers, worker admission queue, and the extension's SQLite writes are real.
-it("records Pi 1.4 parallel workers, queued execution and nested calls per session", { timeout: 30_000 }, async (t) => {
+it("records Pi parallel workers, queued execution and nested calls per session", { timeout: 30_000 }, async (t) => {
   const root = mkdtempSync(join(tmpdir(), "codemode-runtime-"));
   const dbDir = join(root, "usage");
   const previousLimit = process.env.PI_CODEMODE_MAX_WORKERS;
@@ -47,6 +47,7 @@ it("records Pi 1.4 parallel workers, queued execution and nested calls per sessi
   const waiting = deferred();
   let heldCalls = 0;
   const nestedStarts = new Set<string>();
+  const nestedStartParents = new Map<string, string>();
   const ends = new Map<string, EndEvent>();
   const order: string[] = [];
   const writes = new Map<string, { start?: number; end?: number }>();
@@ -73,7 +74,10 @@ it("records Pi 1.4 parallel workers, queued execution and nested calls per sessi
     });
     pi.on("tool_execution_start", (event) => {
       order.push(`start:${event.toolCallId}`);
-      if (event.parentToolCallId) nestedStarts.add(event.parentToolCallId);
+      if (event.parentToolCallId) {
+        nestedStarts.add(event.parentToolCallId);
+        nestedStartParents.set(event.toolCallId, event.parentToolCallId);
+      }
     });
     pi.on("tool_execution_update", (event) => {
       if (event.toolCallId === "queued" && queuedAt === 0) {
@@ -208,6 +212,18 @@ it("records Pi 1.4 parallel workers, queued execution and nested calls per sessi
         assert.equal(row.writeMs, write.end! - write.start!);
         assert.equal(row.writeMs, 10, "worker wait is excluded from script writing time");
         const calls = event.result.details?.calls ?? [];
+        const expectedNested = event.isError ? 0 : 2;
+        assert.equal(calls.length, expectedNested, "successful scripts report both nested calls; queue timeout reports none");
+        assert.equal(nestedStarts.has(row.toolCallId), expectedNested > 0, "nested start events retain the outer parent id");
+        const children = [...ends.values()].filter((child) => child.parentToolCallId === row.toolCallId);
+        assert.equal(children.length, expectedNested, "nested end events retain the outer parent id");
+        assert.equal([...nestedStartParents.values()].filter((parent) => parent === row.toolCallId).length, expectedNested);
+        for (const child of children) {
+          assert.equal(nestedStartParents.get(child.toolCallId), row.toolCallId, "nested start/end events agree on their parent");
+          assert.equal(child.toolName, "gate");
+          assert.equal(child.isError, false);
+          assert.ok(typeof child.durationMs === "number" && Number.isFinite(child.durationMs) && child.durationMs >= 0);
+        }
         const sum = calls.reduce((total, call) => total + (call.durationMs ?? 0), 0);
         assert.equal(row.nestedCallCount, calls.length);
         assert.ok(Math.abs((row.nestedExecuteMs ?? 0) - sum) <= 0.001);
